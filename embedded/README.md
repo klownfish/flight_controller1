@@ -1,0 +1,1 @@
+This directory contains the plaformio project for the flight controller.

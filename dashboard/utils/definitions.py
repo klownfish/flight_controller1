@@ -1,0 +1,4 @@
+INFLUX_NAME = "rocket1"
+SEPARATOR = [0x0A, 0x0D]
+
+
