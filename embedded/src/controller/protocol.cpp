@@ -7,32 +7,7 @@
 void smash();
 
 uint8_t message_count[255] = {0}; //init to 0
-
-uint8_t stateToRadioFrequency(enum rocket::state state) {
-    switch (state) {
-        case rocket::state::sleeping:
-            return 1;
-            break;
-        case rocket::state::awake:
-            return 1;
-            break;
-
-        case rocket::state::debug:
-            return 255;
-            break;
-        
-        case rocket::state::ready:
-        case rocket::state::falling:
-        case rocket::state::powered_flight:
-        case rocket::state::passive_flight:
-        case rocket::state::landed:
-            return 4;
-            break;
-
-        default:
-            return 1;
-    }
-}
+uint16_t relay_frequency = ~0;
 
 void handleDataStreams() {
     static DataProtocol radio_protocol;
@@ -63,20 +38,30 @@ void sendMsg(rocket::MessageBase* msg, enum send_when send) {
 
     switch (send) {
         case REGULAR:
-            message_count[id] = (message_count[id] + 1) % stateToRadioFrequency(rocket_state);
+            message_count[id] = (message_count[id] + 1) % relay_frequency;
             if (message_count[id] == 0) {
-                radio.send(buf, len);
+                if (telemetry_enabled) {
+                    radio.send(buf, len);
+                }
+                #ifdef SERIAL_TELEMETRY
                 Serial.write(buf, len);
+                #endif
             }
             break;
         case ALWAYS:
-            radio.send(buf, len);
+            if (telemetry_enabled) {
+                radio.send(buf, len);
+            }
+            #ifdef SERIAL_TELEMETRY
             Serial.write(buf, len);
+            #endif
             break;
         case NEVER:
             break;
         case OFFLINE:
+            #ifdef SERIAL_TELEMETRY
             Serial.write(buf, len);
+            #endif
             break;
     }
 }
@@ -103,18 +88,10 @@ void rocket::rx(rocket::handshake_from_everyone_to_everyone msg) {
 }
 
 void rocket::rx(rocket::set_state_from_ground_to_rocket msg) {
-    ::rocket_state = msg.get_state();
+    enterState(msg.get_state());
     rocket::state_from_rocket_to_ground response;
-    response.set_state(::rocket_state);
+    response.set_state(rocket_state);
     sendMsg(&response, ALWAYS);
-
-    if (rocket_state == rocket::state::ready) {
-        digitalWriteFast(PIN_PYRO_4, HIGH);
-        estimator.set_moving();
-    } else {
-        digitalWriteFast(PIN_PYRO_4, LOW);
-        estimator.set_stationary(0, 0, 0);
-    }
 }
 
 void rocket::rx(rocket::mag_calibration_from_ground_to_rocket msg) {
@@ -122,13 +99,13 @@ void rocket::rx(rocket::mag_calibration_from_ground_to_rocket msg) {
     rgb.show();
     mpu.setMagneticDeclination(msg.get_declination());
     mpu.calibrateMag();
-    rgb.setPixel(0, GREEN);
+    rgb.setPixel(0, OK_COLOR);
     rgb.show();
 }
 
 void dance();
 void rocket::rx(rocket::play_music_from_ground_to_rocket msg) {
-    if (::rocket_state == state::sleeping || ::rocket_state == state::awake) {
+    if (rocket_state == state::sleeping || rocket_state == state::awake) {
         dance();
     }
 }
@@ -139,7 +116,7 @@ void rocket::rx(rocket::wipe_flash_from_ground_to_rocket msg) {
     rgb.show();
     flash.eraseChip();
     flash_addr = 0;
-    rgb.setPixel(0, GREEN);
+    rgb.setPixel(0, OK_COLOR);
     rgb.show();
 }
 
@@ -157,6 +134,6 @@ void rocket::rx(rocket::dump_flash_from_ground_to_rocket msg) {
         Serial.write(buf, 256);
     }
     delay(5000);
-    rgb.setPixel(0, GREEN);
+    rgb.setPixel(0, OK_COLOR);
     rgb.show();
 }

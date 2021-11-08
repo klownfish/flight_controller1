@@ -114,10 +114,10 @@ void setup() {
     rgb.begin();
     initRadio();
     if (!error) {
-        rgb.setPixelColor(0, BLUE);
+        rgb.setPixelColor(0, OK_COLOR);
         rgb.show();
     } else {
-        rgb.setPixelColor(0, YELLOW);
+        rgb.setPixelColor(0, ERROR_COLOR);
         rgb.show();
     }
 }

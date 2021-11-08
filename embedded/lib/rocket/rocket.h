@@ -44,15 +44,15 @@ enum struct fields : uint8_t {
   address = 5,
   pressure = 6,
   temperature = 7,
-  acc_x = 8,
-  acc_y = 9,
-  acc_z = 10,
-  gyro_x = 11,
-  gyro_y = 12,
-  gyro_z = 13,
-  mag_x = 14,
-  mag_y = 15,
-  mag_z = 16,
+  ax = 8,
+  ay = 9,
+  az = 10,
+  gx = 11,
+  gy = 12,
+  gz = 13,
+  mx = 14,
+  my = 15,
+  mz = 16,
   voltage = 17,
   state = 18,
   rssi = 19,
@@ -64,15 +64,15 @@ enum struct fields : uint8_t {
   longitude = 25,
   armed = 26,
   channel = 27,
-  ax = 28,
-  ay = 29,
-  az = 30,
-  gx = 31,
-  gy = 32,
-  gz = 33,
-  hx = 34,
-  hy = 35,
-  hz = 36,
+  hx = 28,
+  hy = 29,
+  hz = 30,
+  vx = 31,
+  vy = 32,
+  vz = 33,
+  px = 34,
+  py = 35,
+  pz = 36,
 };
 enum struct messages : uint8_t {
   local_timestamp = 0,
@@ -86,16 +86,17 @@ enum struct messages : uint8_t {
   flash_address = 8,
   bmp = 9,
   mpu = 10,
-  battery_voltage = 11,
-  set_state = 12,
-  state = 13,
-  rssi = 14,
-  gps_state = 15,
-  gps_pos = 16,
-  ms_since_boot = 17,
-  arm_pyro = 18,
-  enable_pyro = 19,
-  estimate = 20,
+  bmi = 11,
+  battery_voltage = 12,
+  set_state = 13,
+  state = 14,
+  rssi = 15,
+  gps_state = 16,
+  gps_pos = 17,
+  ms_since_boot = 18,
+  arm_pyro = 19,
+  enable_pyro = 20,
+  estimate = 21,
 };
 enum struct categories : uint8_t {
   none = 0,
@@ -414,24 +415,24 @@ public:
 
 class mpu_from_rocket_to_ground : public MessageBase {
 public:
-  float_t acc_x;
-  static_assert((sizeof(acc_x) == 4), "invalid size");
-  float_t acc_y;
-  static_assert((sizeof(acc_y) == 4), "invalid size");
-  float_t acc_z;
-  static_assert((sizeof(acc_z) == 4), "invalid size");
-  float_t gyro_x;
-  static_assert((sizeof(gyro_x) == 4), "invalid size");
-  float_t gyro_y;
-  static_assert((sizeof(gyro_y) == 4), "invalid size");
-  float_t gyro_z;
-  static_assert((sizeof(gyro_z) == 4), "invalid size");
-  float_t mag_x;
-  static_assert((sizeof(mag_x) == 4), "invalid size");
-  float_t mag_y;
-  static_assert((sizeof(mag_y) == 4), "invalid size");
-  float_t mag_z;
-  static_assert((sizeof(mag_z) == 4), "invalid size");
+  float_t ax;
+  static_assert((sizeof(ax) == 4), "invalid size");
+  float_t ay;
+  static_assert((sizeof(ay) == 4), "invalid size");
+  float_t az;
+  static_assert((sizeof(az) == 4), "invalid size");
+  float_t gx;
+  static_assert((sizeof(gx) == 4), "invalid size");
+  float_t gy;
+  static_assert((sizeof(gy) == 4), "invalid size");
+  float_t gz;
+  static_assert((sizeof(gz) == 4), "invalid size");
+  float_t mx;
+  static_assert((sizeof(mx) == 4), "invalid size");
+  float_t my;
+  static_assert((sizeof(my) == 4), "invalid size");
+  float_t mz;
+  static_assert((sizeof(mz) == 4), "invalid size");
   uint8_t size = 36;
   enum rocket::messages message = rocket::messages::mpu;
   enum rocket::nodes sender = rocket::nodes::rocket;
@@ -443,64 +444,132 @@ public:
   enum nodes get_sender() override { return sender; }
   enum nodes get_receiver() override { return receiver; }
   uint8_t get_id() override { return id; }
-  void set_acc_x(float_t value) { acc_x = value; }
-  void set_acc_y(float_t value) { acc_y = value; }
-  void set_acc_z(float_t value) { acc_z = value; }
-  void set_gyro_x(float_t value) { gyro_x = value; }
-  void set_gyro_y(float_t value) { gyro_y = value; }
-  void set_gyro_z(float_t value) { gyro_z = value; }
-  void set_mag_x(float_t value) { mag_x = value; }
-  void set_mag_y(float_t value) { mag_y = value; }
-  void set_mag_z(float_t value) { mag_z = value; }
-  float_t get_acc_x() { return acc_x; }
-  float_t get_acc_y() { return acc_y; }
-  float_t get_acc_z() { return acc_z; }
-  float_t get_gyro_x() { return gyro_x; }
-  float_t get_gyro_y() { return gyro_y; }
-  float_t get_gyro_z() { return gyro_z; }
-  float_t get_mag_x() { return mag_x; }
-  float_t get_mag_y() { return mag_y; }
-  float_t get_mag_z() { return mag_z; }
+  void set_ax(float_t value) { ax = value; }
+  void set_ay(float_t value) { ay = value; }
+  void set_az(float_t value) { az = value; }
+  void set_gx(float_t value) { gx = value; }
+  void set_gy(float_t value) { gy = value; }
+  void set_gz(float_t value) { gz = value; }
+  void set_mx(float_t value) { mx = value; }
+  void set_my(float_t value) { my = value; }
+  void set_mz(float_t value) { mz = value; }
+  float_t get_ax() { return ax; }
+  float_t get_ay() { return ay; }
+  float_t get_az() { return az; }
+  float_t get_gx() { return gx; }
+  float_t get_gy() { return gy; }
+  float_t get_gz() { return gz; }
+  float_t get_mx() { return mx; }
+  float_t get_my() { return my; }
+  float_t get_mz() { return mz; }
   void build_buf(uint8_t *buf, uint8_t *index) override {
-    memcpy(buf + *index, &acc_x, sizeof(acc_x));
-    *index += sizeof(acc_x);
-    memcpy(buf + *index, &acc_y, sizeof(acc_y));
-    *index += sizeof(acc_y);
-    memcpy(buf + *index, &acc_z, sizeof(acc_z));
-    *index += sizeof(acc_z);
-    memcpy(buf + *index, &gyro_x, sizeof(gyro_x));
-    *index += sizeof(gyro_x);
-    memcpy(buf + *index, &gyro_y, sizeof(gyro_y));
-    *index += sizeof(gyro_y);
-    memcpy(buf + *index, &gyro_z, sizeof(gyro_z));
-    *index += sizeof(gyro_z);
-    memcpy(buf + *index, &mag_x, sizeof(mag_x));
-    *index += sizeof(mag_x);
-    memcpy(buf + *index, &mag_y, sizeof(mag_y));
-    *index += sizeof(mag_y);
-    memcpy(buf + *index, &mag_z, sizeof(mag_z));
-    *index += sizeof(mag_z);
+    memcpy(buf + *index, &ax, sizeof(ax));
+    *index += sizeof(ax);
+    memcpy(buf + *index, &ay, sizeof(ay));
+    *index += sizeof(ay);
+    memcpy(buf + *index, &az, sizeof(az));
+    *index += sizeof(az);
+    memcpy(buf + *index, &gx, sizeof(gx));
+    *index += sizeof(gx);
+    memcpy(buf + *index, &gy, sizeof(gy));
+    *index += sizeof(gy);
+    memcpy(buf + *index, &gz, sizeof(gz));
+    *index += sizeof(gz);
+    memcpy(buf + *index, &mx, sizeof(mx));
+    *index += sizeof(mx);
+    memcpy(buf + *index, &my, sizeof(my));
+    *index += sizeof(my);
+    memcpy(buf + *index, &mz, sizeof(mz));
+    *index += sizeof(mz);
   }
   void parse_buf(uint8_t *buf) override {
     uint8_t index = 0;
-    memcpy(&acc_x, buf + index, sizeof(acc_x));
-    index += sizeof(acc_x);
-    memcpy(&acc_y, buf + index, sizeof(acc_y));
-    index += sizeof(acc_y);
-    memcpy(&acc_z, buf + index, sizeof(acc_z));
-    index += sizeof(acc_z);
-    memcpy(&gyro_x, buf + index, sizeof(gyro_x));
-    index += sizeof(gyro_x);
-    memcpy(&gyro_y, buf + index, sizeof(gyro_y));
-    index += sizeof(gyro_y);
-    memcpy(&gyro_z, buf + index, sizeof(gyro_z));
-    index += sizeof(gyro_z);
-    memcpy(&mag_x, buf + index, sizeof(mag_x));
-    index += sizeof(mag_x);
-    memcpy(&mag_y, buf + index, sizeof(mag_y));
-    index += sizeof(mag_y);
-    memcpy(&mag_z, buf + index, sizeof(mag_z));
-    index += sizeof(mag_z);
+    memcpy(&ax, buf + index, sizeof(ax));
+    index += sizeof(ax);
+    memcpy(&ay, buf + index, sizeof(ay));
+    index += sizeof(ay);
+    memcpy(&az, buf + index, sizeof(az));
+    index += sizeof(az);
+    memcpy(&gx, buf + index, sizeof(gx));
+    index += sizeof(gx);
+    memcpy(&gy, buf + index, sizeof(gy));
+    index += sizeof(gy);
+    memcpy(&gz, buf + index, sizeof(gz));
+    index += sizeof(gz);
+    memcpy(&mx, buf + index, sizeof(mx));
+    index += sizeof(mx);
+    memcpy(&my, buf + index, sizeof(my));
+    index += sizeof(my);
+    memcpy(&mz, buf + index, sizeof(mz));
+    index += sizeof(mz);
+  }
+};
+
+class bmi_from_rocket_to_ground : public MessageBase {
+public:
+  float_t ax;
+  static_assert((sizeof(ax) == 4), "invalid size");
+  float_t ay;
+  static_assert((sizeof(ay) == 4), "invalid size");
+  float_t az;
+  static_assert((sizeof(az) == 4), "invalid size");
+  float_t gx;
+  static_assert((sizeof(gx) == 4), "invalid size");
+  float_t gy;
+  static_assert((sizeof(gy) == 4), "invalid size");
+  float_t gz;
+  static_assert((sizeof(gz) == 4), "invalid size");
+  uint8_t size = 24;
+  enum rocket::messages message = rocket::messages::bmi;
+  enum rocket::nodes sender = rocket::nodes::rocket;
+  enum rocket::nodes receiver = rocket::nodes::ground;
+  enum rocket::categories category = rocket::categories::none;
+  uint8_t id = 11;
+  enum categories get_category() override { return category; }
+  uint8_t get_size() override { return size; }
+  enum nodes get_sender() override { return sender; }
+  enum nodes get_receiver() override { return receiver; }
+  uint8_t get_id() override { return id; }
+  void set_ax(float_t value) { ax = value; }
+  void set_ay(float_t value) { ay = value; }
+  void set_az(float_t value) { az = value; }
+  void set_gx(float_t value) { gx = value; }
+  void set_gy(float_t value) { gy = value; }
+  void set_gz(float_t value) { gz = value; }
+  float_t get_ax() { return ax; }
+  float_t get_ay() { return ay; }
+  float_t get_az() { return az; }
+  float_t get_gx() { return gx; }
+  float_t get_gy() { return gy; }
+  float_t get_gz() { return gz; }
+  void build_buf(uint8_t *buf, uint8_t *index) override {
+    memcpy(buf + *index, &ax, sizeof(ax));
+    *index += sizeof(ax);
+    memcpy(buf + *index, &ay, sizeof(ay));
+    *index += sizeof(ay);
+    memcpy(buf + *index, &az, sizeof(az));
+    *index += sizeof(az);
+    memcpy(buf + *index, &gx, sizeof(gx));
+    *index += sizeof(gx);
+    memcpy(buf + *index, &gy, sizeof(gy));
+    *index += sizeof(gy);
+    memcpy(buf + *index, &gz, sizeof(gz));
+    *index += sizeof(gz);
+  }
+  void parse_buf(uint8_t *buf) override {
+    uint8_t index = 0;
+    memcpy(&ax, buf + index, sizeof(ax));
+    index += sizeof(ax);
+    memcpy(&ay, buf + index, sizeof(ay));
+    index += sizeof(ay);
+    memcpy(&az, buf + index, sizeof(az));
+    index += sizeof(az);
+    memcpy(&gx, buf + index, sizeof(gx));
+    index += sizeof(gx);
+    memcpy(&gy, buf + index, sizeof(gy));
+    index += sizeof(gy);
+    memcpy(&gz, buf + index, sizeof(gz));
+    index += sizeof(gz);
   }
 };
 
@@ -513,7 +582,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 11;
+  uint8_t id = 12;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -541,7 +610,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::ground;
   enum rocket::nodes receiver = rocket::nodes::rocket;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 12;
+  uint8_t id = 13;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -569,7 +638,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 13;
+  uint8_t id = 14;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -597,7 +666,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 14;
+  uint8_t id = 15;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -631,7 +700,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::relay;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 15;
+  uint8_t id = 16;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -669,7 +738,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 16;
+  uint8_t id = 17;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -719,7 +788,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 17;
+  uint8_t id = 18;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -759,7 +828,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 18;
+  uint8_t id = 19;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -792,7 +861,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::ground;
   enum rocket::nodes receiver = rocket::nodes::launchpad;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 19;
+  uint8_t id = 20;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -818,7 +887,7 @@ public:
   enum rocket::nodes sender = rocket::nodes::ground;
   enum rocket::nodes receiver = rocket::nodes::launchpad;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 20;
+  uint8_t id = 21;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -857,14 +926,24 @@ public:
   static_assert((sizeof(hy) == 4), "invalid size");
   float_t hz;
   static_assert((sizeof(hz) == 4), "invalid size");
-  float_t altitude;
-  static_assert((sizeof(altitude) == 4), "invalid size");
-  uint8_t size = 40;
+  float_t vx;
+  static_assert((sizeof(vx) == 4), "invalid size");
+  float_t vy;
+  static_assert((sizeof(vy) == 4), "invalid size");
+  float_t vz;
+  static_assert((sizeof(vz) == 4), "invalid size");
+  float_t px;
+  static_assert((sizeof(px) == 4), "invalid size");
+  float_t py;
+  static_assert((sizeof(py) == 4), "invalid size");
+  float_t pz;
+  static_assert((sizeof(pz) == 4), "invalid size");
+  uint8_t size = 60;
   enum rocket::messages message = rocket::messages::estimate;
   enum rocket::nodes sender = rocket::nodes::rocket;
   enum rocket::nodes receiver = rocket::nodes::ground;
   enum rocket::categories category = rocket::categories::none;
-  uint8_t id = 21;
+  uint8_t id = 22;
   enum categories get_category() override { return category; }
   uint8_t get_size() override { return size; }
   enum nodes get_sender() override { return sender; }
@@ -879,7 +958,12 @@ public:
   void set_hx(float_t value) { hx = value; }
   void set_hy(float_t value) { hy = value; }
   void set_hz(float_t value) { hz = value; }
-  void set_altitude(float_t value) { altitude = value; }
+  void set_vx(float_t value) { vx = value; }
+  void set_vy(float_t value) { vy = value; }
+  void set_vz(float_t value) { vz = value; }
+  void set_px(float_t value) { px = value; }
+  void set_py(float_t value) { py = value; }
+  void set_pz(float_t value) { pz = value; }
   float_t get_ax() { return ax; }
   float_t get_ay() { return ay; }
   float_t get_az() { return az; }
@@ -889,7 +973,12 @@ public:
   float_t get_hx() { return hx; }
   float_t get_hy() { return hy; }
   float_t get_hz() { return hz; }
-  float_t get_altitude() { return altitude; }
+  float_t get_vx() { return vx; }
+  float_t get_vy() { return vy; }
+  float_t get_vz() { return vz; }
+  float_t get_px() { return px; }
+  float_t get_py() { return py; }
+  float_t get_pz() { return pz; }
   void build_buf(uint8_t *buf, uint8_t *index) override {
     memcpy(buf + *index, &ax, sizeof(ax));
     *index += sizeof(ax);
@@ -909,8 +998,18 @@ public:
     *index += sizeof(hy);
     memcpy(buf + *index, &hz, sizeof(hz));
     *index += sizeof(hz);
-    memcpy(buf + *index, &altitude, sizeof(altitude));
-    *index += sizeof(altitude);
+    memcpy(buf + *index, &vx, sizeof(vx));
+    *index += sizeof(vx);
+    memcpy(buf + *index, &vy, sizeof(vy));
+    *index += sizeof(vy);
+    memcpy(buf + *index, &vz, sizeof(vz));
+    *index += sizeof(vz);
+    memcpy(buf + *index, &px, sizeof(px));
+    *index += sizeof(px);
+    memcpy(buf + *index, &py, sizeof(py));
+    *index += sizeof(py);
+    memcpy(buf + *index, &pz, sizeof(pz));
+    *index += sizeof(pz);
   }
   void parse_buf(uint8_t *buf) override {
     uint8_t index = 0;
@@ -932,8 +1031,18 @@ public:
     index += sizeof(hy);
     memcpy(&hz, buf + index, sizeof(hz));
     index += sizeof(hz);
-    memcpy(&altitude, buf + index, sizeof(altitude));
-    index += sizeof(altitude);
+    memcpy(&vx, buf + index, sizeof(vx));
+    index += sizeof(vx);
+    memcpy(&vy, buf + index, sizeof(vy));
+    index += sizeof(vy);
+    memcpy(&vz, buf + index, sizeof(vz));
+    index += sizeof(vz);
+    memcpy(&px, buf + index, sizeof(px));
+    index += sizeof(px);
+    memcpy(&py, buf + index, sizeof(py));
+    index += sizeof(py);
+    memcpy(&pz, buf + index, sizeof(pz));
+    index += sizeof(pz);
   }
 };
 
@@ -959,6 +1068,8 @@ void rx(bmp_from_rocket_to_ground msg);
 void rx(bmp_from_rocket_to_ground msg, void *misc);
 void rx(mpu_from_rocket_to_ground msg);
 void rx(mpu_from_rocket_to_ground msg, void *misc);
+void rx(bmi_from_rocket_to_ground msg);
+void rx(bmi_from_rocket_to_ground msg, void *misc);
 void rx(battery_voltage_from_rocket_to_ground msg);
 void rx(battery_voltage_from_rocket_to_ground msg, void *misc);
 void rx(set_state_from_ground_to_rocket msg);

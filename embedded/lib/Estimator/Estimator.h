@@ -1,6 +1,6 @@
 #pragma once
 
-#include "turbomath/turbomath.h"
+#include "turbomath.h"
 #include <math.h>
 #include <Arduino.h>
 
@@ -107,11 +107,10 @@ public:
     turbomath::Vector set_measurement_noise(turbomath::Vector val) {measurement_noise = val;}
 };
 
-
 //x - yaw
 //y - pitch
 //z - Roll
-class Estimator {
+class Estimasator {
 public:
     Kalman1 altitude{ALTITUDE_MEASUREMENT_NOISE, ALTITUDE_PROCESS_NOISE};
     float ground_level = 0;

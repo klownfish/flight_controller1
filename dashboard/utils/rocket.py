@@ -58,15 +58,15 @@ class fields(Enum):
     address = 5
     pressure = 6
     temperature = 7
-    acc_x = 8
-    acc_y = 9
-    acc_z = 10
-    gyro_x = 11
-    gyro_y = 12
-    gyro_z = 13
-    mag_x = 14
-    mag_y = 15
-    mag_z = 16
+    ax = 8
+    ay = 9
+    az = 10
+    gx = 11
+    gy = 12
+    gz = 13
+    mx = 14
+    my = 15
+    mz = 16
     voltage = 17
     state = 18
     rssi = 19
@@ -78,15 +78,15 @@ class fields(Enum):
     longitude = 25
     armed = 26
     channel = 27
-    ax = 28
-    ay = 29
-    az = 30
-    gx = 31
-    gy = 32
-    gz = 33
-    hx = 34
-    hy = 35
-    hz = 36
+    hx = 28
+    hy = 29
+    hz = 30
+    vx = 31
+    vy = 32
+    vz = 33
+    px = 34
+    py = 35
+    pz = 36
 class messages(Enum):
     local_timestamp = 0
     timestamp = 1
@@ -99,16 +99,17 @@ class messages(Enum):
     flash_address = 8
     bmp = 9
     mpu = 10
-    battery_voltage = 11
-    set_state = 12
-    state = 13
-    rssi = 14
-    gps_state = 15
-    gps_pos = 16
-    ms_since_boot = 17
-    arm_pyro = 18
-    enable_pyro = 19
-    estimate = 20
+    bmi = 11
+    battery_voltage = 12
+    set_state = 13
+    state = 14
+    rssi = 15
+    gps_state = 16
+    gps_pos = 17
+    ms_since_boot = 18
+    arm_pyro = 19
+    enable_pyro = 20
+    estimate = 21
 class categories(Enum):
     none = 0
 class local_timestamp_from_local_to_local:
@@ -481,15 +482,15 @@ class mpu_from_rocket_to_ground:
         self._category = categories.none
         self._id = 10
         self._size = 36
-        self._acc_x = 0
-        self._acc_y = 0
-        self._acc_z = 0
-        self._gyro_x = 0
-        self._gyro_y = 0
-        self._gyro_z = 0
-        self._mag_x = 0
-        self._mag_y = 0
-        self._mag_z = 0
+        self._ax = 0
+        self._ay = 0
+        self._az = 0
+        self._gx = 0
+        self._gy = 0
+        self._gz = 0
+        self._mx = 0
+        self._my = 0
+        self._mz = 0
     def get_sender(self):
         return self._sender
     def get_receiver(self):
@@ -502,85 +503,168 @@ class mpu_from_rocket_to_ground:
         return self._size
     def get_category(self):
         return self._category
-    def set_acc_x(self, value):
-        self._acc_x = value
-    def set_acc_y(self, value):
-        self._acc_y = value
-    def set_acc_z(self, value):
-        self._acc_z = value
-    def set_gyro_x(self, value):
-        self._gyro_x = value
-    def set_gyro_y(self, value):
-        self._gyro_y = value
-    def set_gyro_z(self, value):
-        self._gyro_z = value
-    def set_mag_x(self, value):
-        self._mag_x = value
-    def set_mag_y(self, value):
-        self._mag_y = value
-    def set_mag_z(self, value):
-        self._mag_z = value
+    def set_ax(self, value):
+        self._ax = value
+    def set_ay(self, value):
+        self._ay = value
+    def set_az(self, value):
+        self._az = value
+    def set_gx(self, value):
+        self._gx = value
+    def set_gy(self, value):
+        self._gy = value
+    def set_gz(self, value):
+        self._gz = value
+    def set_mx(self, value):
+        self._mx = value
+    def set_my(self, value):
+        self._my = value
+    def set_mz(self, value):
+        self._mz = value
     def build_buf(self):
         buf = b""
-        buf += struct.pack("<f", self._acc_x)
-        buf += struct.pack("<f", self._acc_y)
-        buf += struct.pack("<f", self._acc_z)
-        buf += struct.pack("<f", self._gyro_x)
-        buf += struct.pack("<f", self._gyro_y)
-        buf += struct.pack("<f", self._gyro_z)
-        buf += struct.pack("<f", self._mag_x)
-        buf += struct.pack("<f", self._mag_y)
-        buf += struct.pack("<f", self._mag_z)
+        buf += struct.pack("<f", self._ax)
+        buf += struct.pack("<f", self._ay)
+        buf += struct.pack("<f", self._az)
+        buf += struct.pack("<f", self._gx)
+        buf += struct.pack("<f", self._gy)
+        buf += struct.pack("<f", self._gz)
+        buf += struct.pack("<f", self._mx)
+        buf += struct.pack("<f", self._my)
+        buf += struct.pack("<f", self._mz)
         return buf
-    def get_acc_x(self):
-        return self._acc_x
-    def get_acc_y(self):
-        return self._acc_y
-    def get_acc_z(self):
-        return self._acc_z
-    def get_gyro_x(self):
-        return self._gyro_x
-    def get_gyro_y(self):
-        return self._gyro_y
-    def get_gyro_z(self):
-        return self._gyro_z
-    def get_mag_x(self):
-        return self._mag_x
-    def get_mag_y(self):
-        return self._mag_y
-    def get_mag_z(self):
-        return self._mag_z
+    def get_ax(self):
+        return self._ax
+    def get_ay(self):
+        return self._ay
+    def get_az(self):
+        return self._az
+    def get_gx(self):
+        return self._gx
+    def get_gy(self):
+        return self._gy
+    def get_gz(self):
+        return self._gz
+    def get_mx(self):
+        return self._mx
+    def get_my(self):
+        return self._my
+    def get_mz(self):
+        return self._mz
     def get_all_data(self):
         data = []
-        data.append((fields.acc_x, self.get_acc_x()))
-        data.append((fields.acc_y, self.get_acc_y()))
-        data.append((fields.acc_z, self.get_acc_z()))
-        data.append((fields.gyro_x, self.get_gyro_x()))
-        data.append((fields.gyro_y, self.get_gyro_y()))
-        data.append((fields.gyro_z, self.get_gyro_z()))
-        data.append((fields.mag_x, self.get_mag_x()))
-        data.append((fields.mag_y, self.get_mag_y()))
-        data.append((fields.mag_z, self.get_mag_z()))
+        data.append((fields.ax, self.get_ax()))
+        data.append((fields.ay, self.get_ay()))
+        data.append((fields.az, self.get_az()))
+        data.append((fields.gx, self.get_gx()))
+        data.append((fields.gy, self.get_gy()))
+        data.append((fields.gz, self.get_gz()))
+        data.append((fields.mx, self.get_mx()))
+        data.append((fields.my, self.get_my()))
+        data.append((fields.mz, self.get_mz()))
         return data
     def parse_buf(self, buf):
         index = 0
-        self._acc_x = struct.unpack_from("<f", buf, index)[0]
+        self._ax = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._acc_y = struct.unpack_from("<f", buf, index)[0]
+        self._ay = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._acc_z = struct.unpack_from("<f", buf, index)[0]
+        self._az = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._gyro_x = struct.unpack_from("<f", buf, index)[0]
+        self._gx = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._gyro_y = struct.unpack_from("<f", buf, index)[0]
+        self._gy = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._gyro_z = struct.unpack_from("<f", buf, index)[0]
+        self._gz = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._mag_x = struct.unpack_from("<f", buf, index)[0]
+        self._mx = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._mag_y = struct.unpack_from("<f", buf, index)[0]
+        self._my = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._mag_z = struct.unpack_from("<f", buf, index)[0]
+        self._mz = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        return
+class bmi_from_rocket_to_ground:
+    def __init__(self):
+        self._sender = nodes.rocket
+        self._receiver = nodes.ground
+        self._message = messages.bmi
+        self._category = categories.none
+        self._id = 11
+        self._size = 24
+        self._ax = 0
+        self._ay = 0
+        self._az = 0
+        self._gx = 0
+        self._gy = 0
+        self._gz = 0
+    def get_sender(self):
+        return self._sender
+    def get_receiver(self):
+        return self._receiver
+    def get_message(self):
+        return self._message
+    def get_id(self):
+        return self._id
+    def get_size(self):
+        return self._size
+    def get_category(self):
+        return self._category
+    def set_ax(self, value):
+        self._ax = value
+    def set_ay(self, value):
+        self._ay = value
+    def set_az(self, value):
+        self._az = value
+    def set_gx(self, value):
+        self._gx = value
+    def set_gy(self, value):
+        self._gy = value
+    def set_gz(self, value):
+        self._gz = value
+    def build_buf(self):
+        buf = b""
+        buf += struct.pack("<f", self._ax)
+        buf += struct.pack("<f", self._ay)
+        buf += struct.pack("<f", self._az)
+        buf += struct.pack("<f", self._gx)
+        buf += struct.pack("<f", self._gy)
+        buf += struct.pack("<f", self._gz)
+        return buf
+    def get_ax(self):
+        return self._ax
+    def get_ay(self):
+        return self._ay
+    def get_az(self):
+        return self._az
+    def get_gx(self):
+        return self._gx
+    def get_gy(self):
+        return self._gy
+    def get_gz(self):
+        return self._gz
+    def get_all_data(self):
+        data = []
+        data.append((fields.ax, self.get_ax()))
+        data.append((fields.ay, self.get_ay()))
+        data.append((fields.az, self.get_az()))
+        data.append((fields.gx, self.get_gx()))
+        data.append((fields.gy, self.get_gy()))
+        data.append((fields.gz, self.get_gz()))
+        return data
+    def parse_buf(self, buf):
+        index = 0
+        self._ax = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._ay = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._az = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._gx = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._gy = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._gz = struct.unpack_from("<f", buf, index)[0]
         index += 4
         return
 class battery_voltage_from_rocket_to_ground:
@@ -589,7 +673,7 @@ class battery_voltage_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.battery_voltage
         self._category = categories.none
-        self._id = 11
+        self._id = 12
         self._size = 4
         self._voltage = 0
     def get_sender(self):
@@ -627,7 +711,7 @@ class set_state_from_ground_to_rocket:
         self._receiver = nodes.rocket
         self._message = messages.set_state
         self._category = categories.none
-        self._id = 12
+        self._id = 13
         self._size = 1
         self._state = 0
     def get_sender(self):
@@ -665,7 +749,7 @@ class state_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.state
         self._category = categories.none
-        self._id = 13
+        self._id = 14
         self._size = 1
         self._state = 0
     def get_sender(self):
@@ -703,7 +787,7 @@ class rssi_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.rssi
         self._category = categories.none
-        self._id = 14
+        self._id = 15
         self._size = 2
         self._rssi = 0
     def get_sender(self):
@@ -741,7 +825,7 @@ class rssi_from_relay_to_ground:
         self._receiver = nodes.ground
         self._message = messages.rssi
         self._category = categories.none
-        self._id = 15
+        self._id = 16
         self._size = 2
         self._rssi = 0
     def get_sender(self):
@@ -779,7 +863,7 @@ class gps_state_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.gps_state
         self._category = categories.none
-        self._id = 16
+        self._id = 17
         self._size = 4
         self._pdop = 0
         self._n_satellites = 0
@@ -835,7 +919,7 @@ class gps_pos_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.gps_pos
         self._category = categories.none
-        self._id = 17
+        self._id = 18
         self._size = 12
         self._altitude = 0
         self._latitude = 0
@@ -891,7 +975,7 @@ class ms_since_boot_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.ms_since_boot
         self._category = categories.none
-        self._id = 18
+        self._id = 19
         self._size = 4
         self._ms_since_boot = 0
     def get_sender(self):
@@ -929,7 +1013,7 @@ class arm_pyro_from_ground_to_launchpad:
         self._receiver = nodes.launchpad
         self._message = messages.arm_pyro
         self._category = categories.none
-        self._id = 19
+        self._id = 20
         self._size = 1
         self._bit_field = 0
     def get_sender(self):
@@ -967,7 +1051,7 @@ class enable_pyro_from_ground_to_launchpad:
         self._receiver = nodes.launchpad
         self._message = messages.enable_pyro
         self._category = categories.none
-        self._id = 20
+        self._id = 21
         self._size = 1
         self._channel = 0
     def get_sender(self):
@@ -1005,8 +1089,8 @@ class estimate_from_rocket_to_ground:
         self._receiver = nodes.ground
         self._message = messages.estimate
         self._category = categories.none
-        self._id = 21
-        self._size = 40
+        self._id = 22
+        self._size = 60
         self._ax = 0
         self._ay = 0
         self._az = 0
@@ -1016,7 +1100,12 @@ class estimate_from_rocket_to_ground:
         self._hx = 0
         self._hy = 0
         self._hz = 0
-        self._altitude = 0
+        self._vx = 0
+        self._vy = 0
+        self._vz = 0
+        self._px = 0
+        self._py = 0
+        self._pz = 0
     def get_sender(self):
         return self._sender
     def get_receiver(self):
@@ -1047,8 +1136,18 @@ class estimate_from_rocket_to_ground:
         self._hy = value
     def set_hz(self, value):
         self._hz = value
-    def set_altitude(self, value):
-        self._altitude = value
+    def set_vx(self, value):
+        self._vx = value
+    def set_vy(self, value):
+        self._vy = value
+    def set_vz(self, value):
+        self._vz = value
+    def set_px(self, value):
+        self._px = value
+    def set_py(self, value):
+        self._py = value
+    def set_pz(self, value):
+        self._pz = value
     def build_buf(self):
         buf = b""
         buf += struct.pack("<f", self._ax)
@@ -1060,7 +1159,12 @@ class estimate_from_rocket_to_ground:
         buf += struct.pack("<f", self._hx)
         buf += struct.pack("<f", self._hy)
         buf += struct.pack("<f", self._hz)
-        buf += struct.pack("<f", self._altitude)
+        buf += struct.pack("<f", self._vx)
+        buf += struct.pack("<f", self._vy)
+        buf += struct.pack("<f", self._vz)
+        buf += struct.pack("<f", self._px)
+        buf += struct.pack("<f", self._py)
+        buf += struct.pack("<f", self._pz)
         return buf
     def get_ax(self):
         return self._ax
@@ -1080,8 +1184,18 @@ class estimate_from_rocket_to_ground:
         return self._hy
     def get_hz(self):
         return self._hz
-    def get_altitude(self):
-        return self._altitude
+    def get_vx(self):
+        return self._vx
+    def get_vy(self):
+        return self._vy
+    def get_vz(self):
+        return self._vz
+    def get_px(self):
+        return self._px
+    def get_py(self):
+        return self._py
+    def get_pz(self):
+        return self._pz
     def get_all_data(self):
         data = []
         data.append((fields.ax, self.get_ax()))
@@ -1093,7 +1207,12 @@ class estimate_from_rocket_to_ground:
         data.append((fields.hx, self.get_hx()))
         data.append((fields.hy, self.get_hy()))
         data.append((fields.hz, self.get_hz()))
-        data.append((fields.altitude, self.get_altitude()))
+        data.append((fields.vx, self.get_vx()))
+        data.append((fields.vy, self.get_vy()))
+        data.append((fields.vz, self.get_vz()))
+        data.append((fields.px, self.get_px()))
+        data.append((fields.py, self.get_py()))
+        data.append((fields.pz, self.get_pz()))
         return data
     def parse_buf(self, buf):
         index = 0
@@ -1115,7 +1234,17 @@ class estimate_from_rocket_to_ground:
         index += 4
         self._hz = struct.unpack_from("<f", buf, index)[0]
         index += 4
-        self._altitude = struct.unpack_from("<f", buf, index)[0]
+        self._vx = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._vy = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._vz = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._px = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._py = struct.unpack_from("<f", buf, index)[0]
+        index += 4
+        self._pz = struct.unpack_from("<f", buf, index)[0]
         index += 4
         return
 def id_to_message_class(id):
@@ -1153,36 +1282,39 @@ def id_to_message_class(id):
         receiver = mpu_from_rocket_to_ground()
         return receiver
     if id == 11:
-        receiver = battery_voltage_from_rocket_to_ground()
+        receiver = bmi_from_rocket_to_ground()
         return receiver
     if id == 12:
-        receiver = set_state_from_ground_to_rocket()
+        receiver = battery_voltage_from_rocket_to_ground()
         return receiver
     if id == 13:
-        receiver = state_from_rocket_to_ground()
+        receiver = set_state_from_ground_to_rocket()
         return receiver
     if id == 14:
-        receiver = rssi_from_rocket_to_ground()
+        receiver = state_from_rocket_to_ground()
         return receiver
     if id == 15:
-        receiver = rssi_from_relay_to_ground()
+        receiver = rssi_from_rocket_to_ground()
         return receiver
     if id == 16:
-        receiver = gps_state_from_rocket_to_ground()
+        receiver = rssi_from_relay_to_ground()
         return receiver
     if id == 17:
-        receiver = gps_pos_from_rocket_to_ground()
+        receiver = gps_state_from_rocket_to_ground()
         return receiver
     if id == 18:
-        receiver = ms_since_boot_from_rocket_to_ground()
+        receiver = gps_pos_from_rocket_to_ground()
         return receiver
     if id == 19:
-        receiver = arm_pyro_from_ground_to_launchpad()
+        receiver = ms_since_boot_from_rocket_to_ground()
         return receiver
     if id == 20:
-        receiver = enable_pyro_from_ground_to_launchpad()
+        receiver = arm_pyro_from_ground_to_launchpad()
         return receiver
     if id == 21:
+        receiver = enable_pyro_from_ground_to_launchpad()
+        return receiver
+    if id == 22:
         receiver = estimate_from_rocket_to_ground()
         return receiver
 def is_specifier(sender, name, field):
@@ -1207,23 +1339,36 @@ def is_specifier(sender, name, field):
         if (fields.temperature == field):
             return False
     if (messages.mpu == name and nodes.rocket == sender):
-        if (fields.acc_x == field):
+        if (fields.ax == field):
             return False
-        if (fields.acc_y == field):
+        if (fields.ay == field):
             return False
-        if (fields.acc_z == field):
+        if (fields.az == field):
             return False
-        if (fields.gyro_x == field):
+        if (fields.gx == field):
             return False
-        if (fields.gyro_y == field):
+        if (fields.gy == field):
             return False
-        if (fields.gyro_z == field):
+        if (fields.gz == field):
             return False
-        if (fields.mag_x == field):
+        if (fields.mx == field):
             return False
-        if (fields.mag_y == field):
+        if (fields.my == field):
             return False
-        if (fields.mag_z == field):
+        if (fields.mz == field):
+            return False
+    if (messages.bmi == name and nodes.rocket == sender):
+        if (fields.ax == field):
+            return False
+        if (fields.ay == field):
+            return False
+        if (fields.az == field):
+            return False
+        if (fields.gx == field):
+            return False
+        if (fields.gy == field):
+            return False
+        if (fields.gz == field):
             return False
     if (messages.battery_voltage == name and nodes.rocket == sender):
         if (fields.voltage == field):
@@ -1279,6 +1424,18 @@ def is_specifier(sender, name, field):
             return False
         if (fields.hz == field):
             return False
-        if (fields.altitude == field):
+        if (fields.vx == field):
+            return False
+        if (fields.vy == field):
+            return False
+        if (fields.vz == field):
+            return False
+        if (fields.px == field):
+            return False
+        if (fields.py == field):
+            return False
+        if (fields.pz == field):
             return False
     return False
+def is_extended_id(id):
+    return

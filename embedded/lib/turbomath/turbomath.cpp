@@ -167,6 +167,14 @@ Quaternion Quaternion::operator*(const Quaternion& q) const
                     w * q.y + x * q.z + y * q.w - z * q.x, w * q.z - x * q.y + y * q.x + z * q.w);
 }
 
+Quaternion Quaternion::operator*(float v) const{
+  return Quaternion(w * v, x * v, y * v, z * v);
+}
+
+Quaternion Quaternion::operator+(const Quaternion& q) const{
+  return Quaternion{w + q.w, x + q.x, y + q.y, z + q.z};
+}
+
 Quaternion& Quaternion::operator*=(const Quaternion& q)
 {
   w = w * q.w - x * q.x - y * q.y - z * q.z;

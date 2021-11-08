@@ -118,6 +118,8 @@ public:
   void get_RPY(float* roll, float* pitch, float* yaw) const;
 
   Vector operator*(const Vector& v) const;
+  Quaternion operator*(float v) const;
+  Quaternion operator+(const Quaternion& q) const;
   Quaternion operator*(const Quaternion& q) const;
   Quaternion& operator*=(const Quaternion& q);
   Vector boxminus(const Quaternion& q) const;

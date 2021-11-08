@@ -37,6 +37,8 @@ __attribute__((weak)) void rx(bmp_from_rocket_to_ground msg) {}
 __attribute__((weak)) void rx(bmp_from_rocket_to_ground msg, void *misc) {}
 __attribute__((weak)) void rx(mpu_from_rocket_to_ground msg) {}
 __attribute__((weak)) void rx(mpu_from_rocket_to_ground msg, void *misc) {}
+__attribute__((weak)) void rx(bmi_from_rocket_to_ground msg) {}
+__attribute__((weak)) void rx(bmi_from_rocket_to_ground msg, void *misc) {}
 __attribute__((weak)) void rx(battery_voltage_from_rocket_to_ground msg) {}
 __attribute__((weak)) void rx(battery_voltage_from_rocket_to_ground msg,
                               void *misc) {}
@@ -134,66 +136,72 @@ void parse_message(uint8_t id, uint8_t *buf) {
     break;
   }
   case 11: {
-    battery_voltage_from_rocket_to_ground __message;
+    bmi_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 12: {
-    set_state_from_ground_to_rocket __message;
+    battery_voltage_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 13: {
-    state_from_rocket_to_ground __message;
+    set_state_from_ground_to_rocket __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 14: {
-    rssi_from_rocket_to_ground __message;
+    state_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 15: {
-    rssi_from_relay_to_ground __message;
+    rssi_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 16: {
-    gps_state_from_rocket_to_ground __message;
+    rssi_from_relay_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 17: {
-    gps_pos_from_rocket_to_ground __message;
+    gps_state_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 18: {
-    ms_since_boot_from_rocket_to_ground __message;
+    gps_pos_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 19: {
-    arm_pyro_from_ground_to_launchpad __message;
+    ms_since_boot_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 20: {
-    enable_pyro_from_ground_to_launchpad __message;
+    arm_pyro_from_ground_to_launchpad __message;
     __message.parse_buf(buf);
     rx(__message);
     break;
   }
   case 21: {
+    enable_pyro_from_ground_to_launchpad __message;
+    __message.parse_buf(buf);
+    rx(__message);
+    break;
+  }
+  case 22: {
     estimate_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message);
@@ -271,66 +279,72 @@ void parse_message(uint8_t id, uint8_t *buf, void *misc) {
     break;
   }
   case 11: {
-    battery_voltage_from_rocket_to_ground __message;
+    bmi_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 12: {
-    set_state_from_ground_to_rocket __message;
+    battery_voltage_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 13: {
-    state_from_rocket_to_ground __message;
+    set_state_from_ground_to_rocket __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 14: {
-    rssi_from_rocket_to_ground __message;
+    state_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 15: {
-    rssi_from_relay_to_ground __message;
+    rssi_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 16: {
-    gps_state_from_rocket_to_ground __message;
+    rssi_from_relay_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 17: {
-    gps_pos_from_rocket_to_ground __message;
+    gps_state_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 18: {
-    ms_since_boot_from_rocket_to_ground __message;
+    gps_pos_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 19: {
-    arm_pyro_from_ground_to_launchpad __message;
+    ms_since_boot_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 20: {
-    enable_pyro_from_ground_to_launchpad __message;
+    arm_pyro_from_ground_to_launchpad __message;
     __message.parse_buf(buf);
     rx(__message, misc);
     break;
   }
   case 21: {
+    enable_pyro_from_ground_to_launchpad __message;
+    __message.parse_buf(buf);
+    rx(__message, misc);
+    break;
+  }
+  case 22: {
     estimate_from_rocket_to_ground __message;
     __message.parse_buf(buf);
     rx(__message, misc);
@@ -407,6 +421,9 @@ bool is_valid_id(uint8_t id) {
   case 21:
     return true;
     break;
+  case 22:
+    return true;
+    break;
   default:
     return false;
   }
@@ -448,37 +465,40 @@ uint8_t id_to_len(uint8_t id) {
     return 36;
     break;
   case 11:
-    return 4;
+    return 24;
     break;
   case 12:
-    return 1;
+    return 4;
     break;
   case 13:
     return 1;
     break;
   case 14:
-    return 2;
+    return 1;
     break;
   case 15:
     return 2;
     break;
   case 16:
-    return 4;
+    return 2;
     break;
   case 17:
-    return 12;
-    break;
-  case 18:
     return 4;
     break;
+  case 18:
+    return 12;
+    break;
   case 19:
-    return 1;
+    return 4;
     break;
   case 20:
     return 1;
     break;
   case 21:
-    return 40;
+    return 1;
+    break;
+  case 22:
+    return 60;
     break;
   default:
     return 0;
@@ -524,19 +544,19 @@ enum nodes id_to_sender(uint8_t id) {
     return nodes::rocket;
     break;
   case 12:
-    return nodes::ground;
+    return nodes::rocket;
     break;
   case 13:
-    return nodes::rocket;
+    return nodes::ground;
     break;
   case 14:
     return nodes::rocket;
     break;
   case 15:
-    return nodes::relay;
+    return nodes::rocket;
     break;
   case 16:
-    return nodes::rocket;
+    return nodes::relay;
     break;
   case 17:
     return nodes::rocket;
@@ -545,12 +565,15 @@ enum nodes id_to_sender(uint8_t id) {
     return nodes::rocket;
     break;
   case 19:
-    return nodes::ground;
+    return nodes::rocket;
     break;
   case 20:
     return nodes::ground;
     break;
   case 21:
+    return nodes::ground;
+    break;
+  case 22:
     return nodes::rocket;
     break;
   }
@@ -595,10 +618,10 @@ enum nodes id_to_receiver(uint8_t id) {
     return nodes::ground;
     break;
   case 12:
-    return nodes::rocket;
+    return nodes::ground;
     break;
   case 13:
-    return nodes::ground;
+    return nodes::rocket;
     break;
   case 14:
     return nodes::ground;
@@ -616,12 +639,15 @@ enum nodes id_to_receiver(uint8_t id) {
     return nodes::ground;
     break;
   case 19:
-    return nodes::launchpad;
+    return nodes::ground;
     break;
   case 20:
     return nodes::launchpad;
     break;
   case 21:
+    return nodes::launchpad;
+    break;
+  case 22:
     return nodes::ground;
     break;
   }
@@ -693,6 +719,9 @@ enum categories id_to_category(uint8_t id) {
     return categories::none;
     break;
   case 21:
+    return categories::none;
+    break;
+  case 22:
     return categories::none;
     break;
   }

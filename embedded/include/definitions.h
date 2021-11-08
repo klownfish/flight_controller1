@@ -31,7 +31,7 @@
 #define PIN_PYRO_ARM 16
 #define PIN_BAT_READ 17
 #define PIN_SDA 18
-#define PIN_SDL 19
+#define PIN_SCL 19
 #define PIN_RGB_TX 20
 #define PIN_LIFTOFF 22
 #define PIN_BUZZER 23

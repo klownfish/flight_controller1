@@ -1679,7 +1679,7 @@ U 1 1 610789BA
 P 1200 3050
 F 0 "JP3" H 1200 3235 50  0000 C CNN
 F 1 "Jumper_NO_Small" H 1200 3144 50  0000 C CNN
-F 2 "Resistor_SMD:R_1812_4532Metric_Pad1.30x3.40mm_HandSolder" H 1200 3050 50  0001 C CNN
+F 2 "custom:R_1812_4532Metric_Pad1.30x3.40mm_HandSolder_no_silk" H 1200 3050 50  0001 C CNN
 F 3 "~" H 1200 3050 50  0001 C CNN
 	1    1200 3050
 	1    0    0    -1  

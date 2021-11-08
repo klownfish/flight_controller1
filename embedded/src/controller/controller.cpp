@@ -14,7 +14,7 @@
 #include "controller.h"
 #include "rocket.h"
 #include "protocol.h"
-#include "Estimator.h"
+//#include "Estimator2.h"
 #include "Sampler.h"
 
 //haha lolz
@@ -24,15 +24,32 @@ void dance();
 
 #define GPS_BAUD 9600
 
+//#define USE_GPS
+#define USE_SERVO
+
+#ifdef USE_GPS
+#ifdef USE_SERVO
+#error "Both servo and gps in use"
+#endif
+#endif
+
+#define KP 0.5 
+#define KI 0.05
+#define KD 0.2
+
 byte drawingMemory[3];         //  3 bytes per LED
 DMAMEM byte displayMemory[12]; // 12 bytes per LED
 WS2812Serial rgb(1, displayMemory, drawingMemory, PIN_RGB_TX, WS2812_RGB);
-
+Bmi088 bmi {Wire, 0x19, 0x69};
 RH_RF69 radio {PIN_RF_CS, PIN_RF_G0}; 
 SPIFlash flash {PIN_FLASH_CS};
 Adafruit_BMP280 bmp;
 MPU9250 mpu;
 GPS gps;
+Servo x_servo;
+Servo y_servo;
+Pid x_gimbal_pid {KP, KI, KD};
+Pid y_gimbal_pid {KP, KI, KD}; //output is rad*s^-2
 
 Estimator estimator;
 
@@ -41,28 +58,47 @@ Sampler sampler;
 uint32_t flash_addr = 0;
 bool error = false;
 bool flash_enabled = false;
-rocket::state rocket_state = rocket::state::sleeping;
+bool telemetry_enabled = false;
+rocket::state rocket_state = rocket::state::ready;
 
-uint16_t stateToTimeDiv(enum rocket::state state) {
-    switch (state) {
-        case rocket::state::sleeping:
-            return 10000;
-            break;
-        case rocket::state::awake:
-            return 20;
-            break;
-        
-        case rocket::state::ready:
+void enterState(rocket::state state) {
+    rocket_state = state;
+
+    switch(rocket_state) {
         case rocket::state::debug:
-        case rocket::state::falling:
-        case rocket::state::powered_flight:
-        case rocket::state::passive_flight:
-        case rocket::state::landed:
-            return 1;
+            sampler.setClockDivider(1);
+            relay_frequency = 1;
             break;
 
-        default:
-            return 10000;
+        case rocket::state::sleeping:
+            sampler.setClockDivider(~0);
+            relay_frequency = 1;
+            break;
+
+        case rocket::state::awake:
+            sampler.setClockDivider(10);
+            relay_frequency = 1;
+            break;
+
+        case rocket::state::ready:
+            sampler.setClockDivider(2);
+            estimator.set_stationary(0, 90 * DEG_TO_RAD, 0);
+            relay_frequency = 5;
+            break;
+
+        case rocket::state::powered_flight:
+            sampler.setClockDivider(1);
+            relay_frequency = 10;
+            break;
+
+        case rocket::state::passive_flight:
+            sampler.setClockDivider(2);
+            relay_frequency = 5;
+            break;
+
+        case rocket::state::falling:
+            sampler.setClockDivider(5);
+            relay_frequency = 1;
     }
 }
 
@@ -94,6 +130,15 @@ void initPins() {
     delay(100);
 }
 
+void initServos() {
+    x_servo.attach(PIN_EXT_RX, 750, 2250);
+    y_servo.attach(PIN_EXT_TX, 750, 2250);
+}
+
+void initGps() {
+    Serial3.begin(GPS_BAUD);
+}
+
 void restoreFlashAddr() {
     uint8_t empty_in_row = 0;
     uint8_t byte = 0;
@@ -121,8 +166,6 @@ void initFlash() {
     for (uint8_t i = 0; i < FLASH_TEST_BYTES; i++) {
         if (flash.readByte(i) != 0xff) {
             restoreFlashAddr();
-            Serial.print("restoring to addres: ");
-            Serial.println(flash_addr);
             return;
         }
     }
@@ -165,10 +208,20 @@ void initMpu() {
     }
 }
 
+void initBmi() {
+    if (!bmi.begin()) {
+        Serial.println("could not initialize BMI");
+        error = true;
+        return;
+    }
+    bmi.setOdr(bmi.ODR_400HZ);
+}
+
 void initBmp() {
     if (!bmp.begin(0x76)) {
         Serial.println("could not initialize BMP");
         error = true;
+        return;
     }
 }
 
@@ -220,24 +273,43 @@ void sampleGpsState(void*) {
 
 void sampleMpu(void*) {
     rocket::mpu_from_rocket_to_ground msg;
-
-    static uint32_t last_update = micros();
-    if (!mpu.update()) return;
     float ax = mpu.getAccX();
     float ay = mpu.getAccY();
     float az = mpu.getAccZ();
     float gx = mpu.getGyroX();
     float gy = mpu.getGyroY();
     float gz = mpu.getGyroZ();
+    //estimator.insert_imu(ax, ay, az, gx, gy, gz, millis()); should be radians not degrees
+    msg.set_ax(ax);
+    msg.set_ay(ay);
+    msg.set_az(az);
+    msg.set_gx(gx);
+    msg.set_gy(gy);
+    msg.set_gz(gz);
+    sendMsg(&msg, REGULAR);
+}
 
-    estimator.update_imu(ax, ay, az, gx, gy, gz, (micros() - last_update) / 1000000);
-    msg.set_acc_x(ax);
-    msg.set_acc_y(ay);
-    msg.set_acc_z(az);
-    msg.set_gyro_x(gx);
-    msg.set_gyro_y(gy);
-    msg.set_gyro_z(gz);
-    last_update = micros();
+void sampleBmi(void*) {
+    rocket::bmi_from_rocket_to_ground msg;
+    bmi.readSensor();
+    float ax = bmi.getAccelX_mss();
+    float ay = bmi.getAccelY_mss();
+    float az = bmi.getAccelZ_mss();
+    float gx = bmi.getGyroX_rads();
+    float gy = bmi.getGyroY_rads();
+    float gz = bmi.getGyroZ_rads();
+    if (millis() > 10000) {
+        estimator.set_moving();
+    } else {
+        estimator.set_stationary(0, 90 * DEG_TO_RAD, 0);
+    }
+    estimator.insert_imu(ax, ay, az, gx, gy, gz, millis());
+    msg.set_ax(ax);
+    msg.set_ay(ay);
+    msg.set_az(az);
+    msg.set_gx(gx);
+    msg.set_gy(gy);
+    msg.set_gz(gz);
     sendMsg(&msg, REGULAR);
 }
 
@@ -246,7 +318,6 @@ void sampleBmp(void*) {
     rocket::bmp_from_rocket_to_ground bmp_msg;
     bmp_msg.set_pressure(bmp.readPressure());
     bmp_msg.set_temperature(bmp.readTemperature());
-    estimator.update_altitude(bmp.readAltitude(), 0);
     sendMsg(&bmp_msg, REGULAR);
 }
 
@@ -278,59 +349,74 @@ void sampleTime(void*) {
 
 void sampleEstimate(void*) {
     rocket::estimate_from_rocket_to_ground msg;
-    msg.set_altitude(estimator.get_altitude());
-    msg.set_ax(estimator.get_ax());
-    msg.set_ay(estimator.get_ay());
-    msg.set_az(estimator.get_az());
-    msg.set_gx(estimator.get_gx());
-    msg.set_gy(estimator.get_gy());
-    msg.set_gz(estimator.get_gz());
-    msg.set_hx(estimator.get_hx());
-    msg.set_hy(estimator.get_hy());
-    msg.set_hz(estimator.get_hz());
-    sendMsg(&msg, REGULAR);
+}
+
+void updateTvc(void*) {
+    static uint32_t last_update = micros();
+    uint32_t current_time = micros();
+    float dt = (current_time - last_update) / 1000000;
+    turbomath::Quaternion heading_quat = estimator.get_heading();
+    float roll, pitch, yaw;
+    heading_quat.get_RPY(&roll, &pitch, & yaw);
+    float x_target = x_gimbal_pid.update(roll, dt);
+    float y_target = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
+    
 }
 
 void initSampler() {
-    sampler.insertFunction(sampleTime, 50);
+    #ifdef USE_GPS
+        sampler.insertFunction(sampleGpsState, 3);
+        sampler.insertFunction(sampleGpsPosition, 3);    
+    #else
+        sampler.insertFunction(updateTvc, 100);
+    #endif
+
+    sampler.insertFunction(sampleTime, 20);
     sampler.insertFunction(sampleState, 1);
-    sampler.insertFunction(sampleMpu, 30);
-    sampler.insertFunction(sampleBmp, 50);
+    sampler.insertFunction(sampleMpu, 50);
+    sampler.insertFunction(sampleBmi, 20);
+    sampler.insertFunction(sampleBmp, 20);
     sampler.insertFunction(sampleFlashMemory, 1);
     sampler.insertFunction(sampleBatteryVoltage, 1);
     sampler.insertFunction(sampleEstimate, 20);
-    sampler.insertFunction(sampleGpsState, 3);
-    sampler.insertFunction(sampleGpsPosition, 3);
 }
 
 void setup() {
     Serial.begin(BAUD);
-    Serial3.begin(GPS_BAUD);
     initPins();
     rgb.begin();
-
+    Wire.setClock(400000);
     initFlash();
     initMpu();
     initBmp();
+    initBmi();
     initRadio();
     initSampler();
     if (error) {
         // not good
-        rgb.setPixel(0, RED);
+        rgb.setPixel(0, ERROR_COLOR);
         rgb.show();
     } else {
         // the all good song
         // dance();
-        rgb.setPixel(0, GREEN);
+        rgb.setPixel(0, OK_COLOR);
         rgb.show();
     }
+
+    #ifdef USE_GPS
+        initGps();
+    #else
+        digitalWrite(PIN_PYRO_4, HIGH);
+        x_gimbal_pid.set_setpoint(0);
+        y_gimbal_pid.set_setpoint(0);
+        initServos();
+    #endif
 }
 
 void loop() {
     handleDataStreams();
     static uint32_t last_update = micros();
     uint32_t dt = micros() - last_update;
-    sampler.setClockDivider(stateToTimeDiv(rocket_state));
     sampler.update(dt);
     last_update = micros();
 }
