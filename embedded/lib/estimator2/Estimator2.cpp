@@ -41,7 +41,7 @@ void Estimator::insert_imu(float ax, float ay, float az, float gx, float gy, flo
     local_accel.insert(imu_offset.rotate(accel_raw));
     local_gyro.insert(gyro_raw - gyro_bias.get_value());
 
-    #define MEGA_PRINT
+    //#define MEGA_PRINT
     #ifdef MEGA_PRINT   
     float roll, pitch, yaw;
     heading.get_RPY(&roll, &pitch, &yaw);
@@ -103,4 +103,8 @@ void Estimator::ignition_started() {
 
 turbomath::Quaternion Estimator::get_heading() {
     return heading;
+}
+
+turbomath::Vector Estimator::get_local_acc() {
+    return local_accel.get_value();
 }

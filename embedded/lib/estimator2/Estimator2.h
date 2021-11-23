@@ -4,9 +4,8 @@
 #include <stdint.h>
 #include <math.h>
 #include "turbomath.h"
-#include "KlimaD3.h"
-#include "rocket_defines.h"
-
+//#include "KlimaD3.h"
+//#include "rocket_defines.h"
 #define AMOUNT_OF_ENGINES 2
 
 #define GRAVITY 9.824

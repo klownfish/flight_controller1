@@ -24,6 +24,10 @@ void dance();
 
 #define GPS_BAUD 9600
 
+#define SERVO_MIN_PULSE 750
+#define SERVO_MAX_PULSE 2250
+#define SERVO_ACTUATION (55 * DEG_TO_RAD)
+
 //#define USE_GPS
 #define USE_SERVO
 
@@ -298,11 +302,6 @@ void sampleBmi(void*) {
     float gx = bmi.getGyroX_rads();
     float gy = bmi.getGyroY_rads();
     float gz = bmi.getGyroZ_rads();
-    if (millis() > 10000) {
-        estimator.set_moving();
-    } else {
-        estimator.set_stationary(0, 90 * DEG_TO_RAD, 0);
-    }
     estimator.insert_imu(ax, ay, az, gx, gy, gz, millis());
     msg.set_ax(ax);
     msg.set_ay(ay);
@@ -352,15 +351,41 @@ void sampleEstimate(void*) {
 }
 
 void updateTvc(void*) {
+    Serial.println("-----");
+    if (millis() > 10000) {
+        estimator.set_moving();
+    } else {
+        estimator.set_stationary(0, 0, 0);
+        Serial.println("stationary");
+    }
     static uint32_t last_update = micros();
     uint32_t current_time = micros();
     float dt = (current_time - last_update) / 1000000;
     turbomath::Quaternion heading_quat = estimator.get_heading();
     float roll, pitch, yaw;
     heading_quat.get_RPY(&roll, &pitch, & yaw);
-    float x_target = x_gimbal_pid.update(roll, dt);
-    float y_target = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
+    float x_angular_accel = x_gimbal_pid.update(roll, dt);
+    float y_angular_accel = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
+
+    float total_thrust = estimator.get_local_acc().z / ROCKET_MASS;
+    float moment_arm = ROCKET_MOUNT - ROCKET_COM;
+    float x_thrust =  x_angular_accel * ROCKET_MOI / moment_arm;
+    float y_thrust = y_angular_accel * ROCKET_MOI / moment_arm;;
     
+    float x_angle = asinf(x_thrust / total_thrust);
+    float y_angle = asinf(y_thrust / total_thrust);
+
+    float mount_x_angle = cosf(yaw) * x_angle - sinf(yaw) * y_angle;
+    float mount_y_angle = sinf(yaw) * x_angle + cosf(yaw) * y_angle;
+
+    float servo_x_angle = mount_x_angle;
+    float servo_y_angle = mount_y_angle;
+
+    servo_x_angle = SERVO_ACTUATION / 2 + constrain(servo_x_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
+    servo_y_angle = SERVO_ACTUATION / 2 + constrain(servo_y_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
+
+    x_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_x_angle / SERVO_ACTUATION);
+    y_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_y_angle / SERVO_ACTUATION);
 }
 
 void initSampler() {
@@ -412,11 +437,12 @@ void setup() {
         initServos();
     #endif
 }
-
+S
 void loop() {
     handleDataStreams();
     static uint32_t last_update = micros();
     uint32_t dt = micros() - last_update;
     sampler.update(dt);
+    estimator.update(micros());
     last_update = micros();
 }
