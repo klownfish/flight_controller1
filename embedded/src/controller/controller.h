@@ -11,6 +11,9 @@
 #include "Pid.h"
 #include "Servo.h"
 #include "rocket_defines.h"
+#include "i2c_device.h"
+#include "TsyDMASPI.h"
+#include "TeensyThreads.h"
 
 //#define SERIAL_TELEMETRY
 

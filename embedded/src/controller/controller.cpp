@@ -14,7 +14,6 @@
 #include "controller.h"
 #include "rocket.h"
 #include "protocol.h"
-//#include "Estimator2.h"
 #include "Sampler.h"
 
 //haha lolz
@@ -411,11 +410,13 @@ void setup() {
     initPins();
     rgb.begin();
     Wire.setClock(400000);
+    /*
     initFlash();
     initMpu();
     initBmp();
     initBmi();
     initRadio();
+    */
     initSampler();
     if (error) {
         // not good
@@ -437,7 +438,7 @@ void setup() {
         initServos();
     #endif
 }
-S
+
 void loop() {
     handleDataStreams();
     static uint32_t last_update = micros();
