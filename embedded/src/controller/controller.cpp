@@ -1,15 +1,11 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include <Wire.h> // i2c
-#include <SerialFlash.h> // for flash chip
-#include <SPIMemory.h>
 #include <RH_RF69.h>
 #include <Adafruit_BMP280.h>
 #include <elapsedMillis.h>
 #include <WS2812Serial.h>
 #include <Adafruit_NeoPixel.h>
 
-#include "MPU9250.h"
 #include "definitions.h" // pin and protocol definitions
 #include "controller.h"
 #include "rocket.h"
@@ -18,6 +14,12 @@
 
 //haha lolz
 void dance();
+
+#define SERIAL_DEBUG
+
+#define BMI_GYRO_FREQUENCY 1000
+#define BMI_ACCEL_FREQUENCY 250
+#define BMP_FREQUENCY 50
 
 #define FLASH_TEST_BYTES 10
 
@@ -40,14 +42,19 @@ void dance();
 #define KI 0.05
 #define KD 0.2
 
+Threads::Mutex i2c_mtx;
+Threads::Mutex spi_mtx;
+Threads::Mutex usb_mtx;
+
 byte drawingMemory[3];         //  3 bytes per LED
 DMAMEM byte displayMemory[12]; // 12 bytes per LED
 WS2812Serial rgb(1, displayMemory, drawingMemory, PIN_RGB_TX, WS2812_RGB);
-Bmi088 bmi {Wire, 0x19, 0x69};
+Bmi088Accel bmiAcc {Master, 0x19};
+Bmi088Gyro bmiGyro {Master, 0x69};
 RH_RF69 radio {PIN_RF_CS, PIN_RF_G0}; 
-SPIFlash flash {PIN_FLASH_CS};
-Adafruit_BMP280 bmp;
+AsyncFlash flash {&SPI, PIN_FLASH_CS, 10000000};
 MPU9250 mpu;
+BMP280 bmp {Master};
 GPS gps;
 Servo x_servo;
 Servo y_servo;
@@ -64,44 +71,52 @@ bool flash_enabled = false;
 bool telemetry_enabled = false;
 rocket::state rocket_state = rocket::state::ready;
 
+void threadEnd(float frequency) {
+    static uint32_t start_time = micros(); 
+    uint32_t end_time = micros();
+    uint32_t delay = 1.0 / frequency * 1000000;
+    uint32_t time_taken = end_time - start_time;
+
+    #ifdef SERIAL_DEBUG
+        if (time_taken > delay) {
+            Serial.println("a thread is impossibly slow");
+        }
+    #endif
+
+    threads.delay_us(delay - time_taken);
+    start_time = micros();
+    #ifdef SERIAL_DEBUG
+        if (start_time - end_time > delay * 2) {
+            Serial.println("took too long for a thread to start");
+        }
+    #endif
+}
+
 void enterState(rocket::state state) {
     rocket_state = state;
 
     switch(rocket_state) {
         case rocket::state::debug:
-            sampler.setClockDivider(1);
-            relay_frequency = 1;
             break;
 
         case rocket::state::sleeping:
-            sampler.setClockDivider(~0);
-            relay_frequency = 1;
-            break;
-
-        case rocket::state::awake:
-            sampler.setClockDivider(10);
-            relay_frequency = 1;
             break;
 
         case rocket::state::ready:
-            sampler.setClockDivider(2);
             estimator.set_stationary(0, 90 * DEG_TO_RAD, 0);
-            relay_frequency = 5;
             break;
 
         case rocket::state::powered_flight:
-            sampler.setClockDivider(1);
-            relay_frequency = 10;
             break;
 
         case rocket::state::passive_flight:
-            sampler.setClockDivider(2);
-            relay_frequency = 5;
             break;
 
         case rocket::state::falling:
-            sampler.setClockDivider(5);
-            relay_frequency = 1;
+            break;
+
+        case rocket::state::landed:
+            break;
     }
 }
 
@@ -146,32 +161,31 @@ void restoreFlashAddr() {
     uint8_t empty_in_row = 0;
     uint8_t byte = 0;
     while (true) {
-        if ((byte = flash.readByte(flash_addr)) == 0xff) {
+        flash.read(flash_addr, &byte, 1);
+        if (byte == 0xff) {
             empty_in_row += 1;
         } else {
             empty_in_row = 0;
         }
         if (empty_in_row == FLASH_TEST_BYTES) {
-            flash_addr -= FLASH_TEST_BYTES - 1;
+            flash_addr -= FLASH_TEST_BYTES - 2;
             break;
         }
-        flash_addr++;        
+        flash_addr++;
     }
+    Serial.print("restoring flash to: ");
+    Serial.println(flash_addr);
 }
 
 void initFlash() {   
-    flash.setClock(104000000 / 2);
-    if (!flash.begin(MB(16))) {
+    if (!flash.begin(0xEF6018)) {
         Serial.println("Could not init flash chip");
         error = true;
         return;
     }
-    for (uint8_t i = 0; i < FLASH_TEST_BYTES; i++) {
-        if (flash.readByte(i) != 0xff) {
-            restoreFlashAddr();
-            return;
-        }
-    }
+    uint8_t byte = 1;
+    flash.write(0, &byte, 1);
+    restoreFlashAddr();
 }
 
 void initRadio() {
@@ -212,12 +226,16 @@ void initMpu() {
 }
 
 void initBmi() {
-    if (!bmi.begin()) {
-        Serial.println("could not initialize BMI");
+    uint8_t ret = 0;
+    ret |= bmiAcc.begin();
+    ret |= bmiGyro.begin();
+    if (ret != 1) {
+        Serial.println("could not ini BMI");
         error = true;
         return;
     }
-    bmi.setOdr(bmi.ODR_400HZ);
+    bmiAcc.setOdr(Bmi088Accel::Odr::ODR_400HZ_BW_145HZ);
+    bmiGyro.setOdr(Bmi088Gyro::Odr::ODR_2000HZ_BW_230HZ);
 }
 
 void initBmp() {
@@ -228,17 +246,17 @@ void initBmp() {
     }
 }
 
-void sampleGpsPosition(void*) {
+void sampleGpsPosition() {
     rocket::gps_pos_from_rocket_to_ground msg;
     if (gps.is_set(FLAG_ALTITUDE) && gps.is_set(FLAG_LONGITUDE) && gps.is_set(FLAG_LATITUDE)) {
         msg.set_altitude(gps.altitude);
         msg.set_longitude(gps.longitude_degrees + gps.longitude_minutes / 60);
         msg.set_latitude(gps.latitude_degrees + gps.latitude_minutes / 60);
-        sendMsg(&msg, send_when::REGULAR);
+        sendMsg(&msg, 3);
     }
 }
 
-void sampleGpsState(void*) {
+void sampleGpsState() {
     rocket::gps_state_from_rocket_to_ground msg;
     if (gps.is_set(FLAG_FIX_STATUS)) {
         switch (gps.fix_status) {
@@ -270,154 +288,156 @@ void sampleGpsState(void*) {
     } else {
         msg.set_n_satellites(0);
     }
-
-    sendMsg(&msg, send_when::REGULAR);
+    sendMsg(&msg, 10);
 }
 
-void sampleMpu(void*) {
-    rocket::mpu_from_rocket_to_ground msg;
-    float ax = mpu.getAccX();
-    float ay = mpu.getAccY();
-    float az = mpu.getAccZ();
-    float gx = mpu.getGyroX();
-    float gy = mpu.getGyroY();
-    float gz = mpu.getGyroZ();
-    //estimator.insert_imu(ax, ay, az, gx, gy, gz, millis()); should be radians not degrees
-    msg.set_ax(ax);
-    msg.set_ay(ay);
-    msg.set_az(az);
-    msg.set_gx(gx);
-    msg.set_gy(gy);
-    msg.set_gz(gz);
-    sendMsg(&msg, REGULAR);
+void sampleBmiAccel() {
+    for (;;) {
+        i2c_mtx.lock();
+        bmiAcc.readSensor();
+        i2c_mtx.unlock();
+        float ax = bmiAcc.getAccelX_mss();
+        float ay = bmiAcc.getAccelY_mss();
+        float az = bmiAcc.getAccelZ_mss();
+        Serial.println("a");
+        threadEnd(BMI_ACCEL_FREQUENCY);
+    }
 }
 
-void sampleBmi(void*) {
-    rocket::bmi_from_rocket_to_ground msg;
-    bmi.readSensor();
-    float ax = bmi.getAccelX_mss();
-    float ay = bmi.getAccelY_mss();
-    float az = bmi.getAccelZ_mss();
-    float gx = bmi.getGyroX_rads();
-    float gy = bmi.getGyroY_rads();
-    float gz = bmi.getGyroZ_rads();
-    estimator.insert_imu(ax, ay, az, gx, gy, gz, millis());
-    msg.set_ax(ax);
-    msg.set_ay(ay);
-    msg.set_az(az);
-    msg.set_gx(gx);
-    msg.set_gy(gy);
-    msg.set_gz(gz);
-    sendMsg(&msg, REGULAR);
+void sampleBmiGyro() {
+    for (;;) {
+        i2c_mtx.lock();
+        bmiGyro.readSensor();
+        i2c_mtx.unlock();
+        float gx = bmiGyro.getGyroX_rads();
+        float gy = bmiGyro.getGyroY_rads();
+        float gz = bmiGyro.getGyroZ_rads();
+        Serial.println("g");
+        threadEnd(BMI_GYRO_FREQUENCY);
+    }
 }
 
-void sampleBmp(void*) {
-    static uint32_t last_update = micros();
-    rocket::bmp_from_rocket_to_ground bmp_msg;
-    bmp_msg.set_pressure(bmp.readPressure());
-    bmp_msg.set_temperature(bmp.readTemperature());
-    sendMsg(&bmp_msg, REGULAR);
+void sampleBmp() {
+    for (;;) {
+        i2c_mtx.lock();
+        uint32_t wait = bmp.startMeasurment();
+        i2c_mtx.unlock();
+        threads.delay(wait);
+        i2c_mtx.lock();
+        double temp, pressure;
+        bmp.getTemperatureAndPressure(temp, pressure);
+        i2c_mtx.unlock();
+        Serial.println("pressure");
+        Serial.println(pressure);
+        threadEnd(BMP_FREQUENCY);
+    }
 }
 
-void sampleBatteryVoltage(void*) {
+void sampleBatteryVoltage() {
     rocket::battery_voltage_from_rocket_to_ground battery_msg;
     float volt = (float) analogRead(PIN_BAT_READ);
     volt = volt / ((1 << 12) - 1) * 3.3 * (6.04e3 + 2e3) / (2e3);   
     battery_msg.set_voltage(volt);
-    sendMsg(&battery_msg, REGULAR);
+    sendMsg(&battery_msg, 1);
 }
 
-void sampleFlashMemory(void*) {
+void sampleFlashMemory() {
     rocket::flash_address_from_rocket_to_ground flash_msg;
     flash_msg.set_address(flash_addr);
-    sendMsg(&flash_msg, REGULAR);
+    sendMsg(&flash_msg, 1);
 }
 
-void sampleState(void*) {
+void sampleState() {
     rocket::state_from_rocket_to_ground state_msg;
     state_msg.set_state(rocket_state);
-    sendMsg(&state_msg, REGULAR);
+    sendMsg(&state_msg, 1);
 }
 
-void sampleTime(void*) {
+void sampleTime() {
     rocket::timestamp_from_rocket_to_ground msg;
     msg.set_ms_since_boot(millis());
-    sendMsg(&msg, REGULAR);
+    sendMsg(&msg, 1);
 }
 
-void sampleEstimate(void*) {
+void sampleEstimate() {
     rocket::estimate_from_rocket_to_ground msg;
 }
+void updateTvc() {
+    for (;;) {
+        if (millis() > 10000) {
+            estimator.set_moving();
+        } else {
+            estimator.set_stationary(0, 0, 0);
+        }
+        static uint32_t last_update = micros();
+        uint32_t current_time = micros();
+        float dt = (current_time - last_update) / 1000000;
+        turbomath::Quaternion heading_quat = estimator.get_heading();
+        float roll, pitch, yaw;
+        heading_quat.get_RPY(&roll, &pitch, & yaw);
+        float x_angular_accel = x_gimbal_pid.update(roll, dt);
+        float y_angular_accel = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
 
-void updateTvc(void*) {
-    Serial.println("-----");
-    if (millis() > 10000) {
-        estimator.set_moving();
-    } else {
-        estimator.set_stationary(0, 0, 0);
-        Serial.println("stationary");
+        float total_thrust = estimator.get_local_acc().z / ROCKET_MASS;
+        float moment_arm = ROCKET_MOUNT - ROCKET_COM;
+        float x_thrust =  x_angular_accel * ROCKET_MOI / moment_arm;
+        float y_thrust = y_angular_accel * ROCKET_MOI / moment_arm;;
+        
+        float x_angle = asinf(x_thrust / total_thrust);
+        float y_angle = asinf(y_thrust / total_thrust);
+
+        float mount_x_angle = cosf(yaw) * x_angle - sinf(yaw) * y_angle;
+        float mount_y_angle = sinf(yaw) * x_angle + cosf(yaw) * y_angle;
+
+        float servo_x_angle = mount_x_angle;
+        float servo_y_angle = mount_y_angle;
+
+        servo_x_angle = SERVO_ACTUATION / 2 + constrain(servo_x_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
+        servo_y_angle = SERVO_ACTUATION / 2 + constrain(servo_y_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
+        
+        x_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_x_angle / SERVO_ACTUATION);
+        y_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_y_angle / SERVO_ACTUATION);
+        threads.yield();
     }
-    static uint32_t last_update = micros();
-    uint32_t current_time = micros();
-    float dt = (current_time - last_update) / 1000000;
-    turbomath::Quaternion heading_quat = estimator.get_heading();
-    float roll, pitch, yaw;
-    heading_quat.get_RPY(&roll, &pitch, & yaw);
-    float x_angular_accel = x_gimbal_pid.update(roll, dt);
-    float y_angular_accel = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
-
-    float total_thrust = estimator.get_local_acc().z / ROCKET_MASS;
-    float moment_arm = ROCKET_MOUNT - ROCKET_COM;
-    float x_thrust =  x_angular_accel * ROCKET_MOI / moment_arm;
-    float y_thrust = y_angular_accel * ROCKET_MOI / moment_arm;;
-    
-    float x_angle = asinf(x_thrust / total_thrust);
-    float y_angle = asinf(y_thrust / total_thrust);
-
-    float mount_x_angle = cosf(yaw) * x_angle - sinf(yaw) * y_angle;
-    float mount_y_angle = sinf(yaw) * x_angle + cosf(yaw) * y_angle;
-
-    float servo_x_angle = mount_x_angle;
-    float servo_y_angle = mount_y_angle;
-
-    servo_x_angle = SERVO_ACTUATION / 2 + constrain(servo_x_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
-    servo_y_angle = SERVO_ACTUATION / 2 + constrain(servo_y_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
-
-    x_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_x_angle / SERVO_ACTUATION);
-    y_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_y_angle / SERVO_ACTUATION);
 }
 
-void initSampler() {
-    #ifdef USE_GPS
-        sampler.insertFunction(sampleGpsState, 3);
-        sampler.insertFunction(sampleGpsPosition, 3);    
-    #else
-        sampler.insertFunction(updateTvc, 100);
-    #endif
-
-    sampler.insertFunction(sampleTime, 20);
-    sampler.insertFunction(sampleState, 1);
-    sampler.insertFunction(sampleMpu, 50);
-    sampler.insertFunction(sampleBmi, 20);
-    sampler.insertFunction(sampleBmp, 20);
-    sampler.insertFunction(sampleFlashMemory, 1);
-    sampler.insertFunction(sampleBatteryVoltage, 1);
-    sampler.insertFunction(sampleEstimate, 20);
+void initThreads() {
+    threads.setMicroTimer();
+    threads.addThread(sampleBmp);
 }
 
 void setup() {
+    //setup doesn't have to be optimized, lock everything
+    i2c_mtx.lock();
+    spi_mtx.lock();
+    usb_mtx.lock();
     Serial.begin(BAUD);
+    while(!Serial){}
     initPins();
+    enterState(rocket::state::ready);
+    sampler.setClockDivider(1);
     rgb.begin();
-    Wire.setClock(400000);
-    /*
+    rgb.setPixel(0, 0);
+    rgb.show();
+    Master.begin(400000);
     initFlash();
-    initMpu();
     initBmp();
-    initBmi();
-    initRadio();
-    */
-    initSampler();
+    //initRadio();
+    initThreads();
+    #ifdef USE_GPS
+        initGps();
+        sampler.insertFunction(sampleGpsPosition, 10);
+        sampler.insertFunction(sampleGpsState, 10);
+    #else
+        initBmi();
+        digitalWrite(PIN_PYRO_4, HIGH);
+        x_gimbal_pid.set_setpoint(0);
+        y_gimbal_pid.set_setpoint(0);
+        threads.addThread(updateTvc);
+        threads.addThread(sampleBmiAccel);
+        threads.addThread(sampleBmiGyro);
+        initServos();
+    #endif
     if (error) {
         // not good
         rgb.setPixel(0, ERROR_COLOR);
@@ -428,22 +448,14 @@ void setup() {
         rgb.setPixel(0, OK_COLOR);
         rgb.show();
     }
-
-    #ifdef USE_GPS
-        initGps();
-    #else
-        digitalWrite(PIN_PYRO_4, HIGH);
-        x_gimbal_pid.set_setpoint(0);
-        y_gimbal_pid.set_setpoint(0);
-        initServos();
-    #endif
+    i2c_mtx.unlock();
+    spi_mtx.unlock();
+    usb_mtx.unlock();
 }
 
 void loop() {
     handleDataStreams();
-    static uint32_t last_update = micros();
-    uint32_t dt = micros() - last_update;
-    sampler.update(dt);
     estimator.update(micros());
-    last_update = micros();
+    
+    threads.yield();
 }

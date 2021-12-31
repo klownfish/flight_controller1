@@ -21,7 +21,7 @@
 */
 
 
-#include "BMI088.h"
+#include "async_BMI088.h"
 
 /* Macros to get and set register fields */
 #define GET_FIELD(regname,value) ((value & regname##_MASK) >> regname##_POS)
@@ -590,7 +590,7 @@ static const uint8_t bmi_feature_config[] = {
 };
 
 /* BMI088 object, input the I2C bus and address */
-Bmi088Accel::Bmi088Accel(TwoWire &bus,uint8_t address)
+Bmi088Accel::Bmi088Accel(I2CMaster &bus,uint8_t address)
 {
   _i2c = &bus; // I2C bus
   _address = address; // I2C address
@@ -615,10 +615,7 @@ int Bmi088Accel::begin()
     // begin SPI communication
     _spi->begin();
   } else {
-    /* starting the I2C bus */
-    _i2c->begin();
-    /* setting the I2C clock */
-    _i2c->setClock(_i2cRate);
+    // let user init i2c
   }
   /* check device id */
   if (!isCorrectId()) {
@@ -1143,10 +1140,11 @@ void Bmi088Accel::writeRegister(uint8_t subAddress, uint8_t data)
     digitalWrite(_csPin,HIGH); // deselect the chip
     _spi->endTransaction(); // end the transaction
   } else {
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // write the register address
-    _i2c->write(data); // write the data
-    _i2c->endTransmission();
+    uint8_t buf[2] = {subAddress, data};
+    _i2c->write_async(_address, buf, 2, 1);
+    while (not _i2c->finished()) {
+      threads.yield();
+    }
   }
 }
 
@@ -1163,12 +1161,13 @@ void Bmi088Accel::writeRegisters(uint8_t subAddress, uint8_t count, const uint8_
     digitalWrite(_csPin,HIGH); // deselect the chip
     _spi->endTransaction(); // end the transaction
   } else {
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // write the register address
-    for (uint8_t i = 0; i < count; i++) {
-      _i2c->write(data[i]); // write the data
+    uint8_t buf[count + 1];
+    buf[0] = subAddress;
+    memcpy(buf + 1, data, count);
+    _i2c->write_async(_address, buf, count + 1, 1); // write the register address
+    while (not _i2c->finished()) {
+      threads.yield();
     }
-    _i2c->endTransmission();
   }
 }
 
@@ -1190,18 +1189,19 @@ void Bmi088Accel::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest
     digitalWrite(_csPin,HIGH); // deselect the chip
     _spi->endTransaction(); // end the transaction
   } else {
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // specify the starting register address
-    _i2c->endTransmission(false);
-    _i2c->requestFrom(_address, count); // specify the number of bytes to receive
-    for (uint8_t i = 0; i < count; i++) {
-      dest[i] = _i2c->read(); // read the data
+    _i2c->write_async(_address, &subAddress, 1, 0);
+    while (not _i2c->finished()) {
+      threads.yield();
+    }
+    _i2c->read_async(_address, dest, count, 1);
+    while (not _i2c->finished()) {
+      threads.yield();
     }
   }
 }
 
 /* BMI088 object, input the I2C bus and address */
-Bmi088Gyro::Bmi088Gyro(TwoWire &bus,uint8_t address)
+Bmi088Gyro::Bmi088Gyro(I2CMaster &bus,uint8_t address)
 {
   _i2c = &bus; // I2C bus
   _address = address; // I2C address
@@ -1227,10 +1227,7 @@ int Bmi088Gyro::begin()
     // begin SPI communication
     _spi->begin();
   } else {
-    /* starting the I2C bus */
-    _i2c->begin();
-    /* setting the I2C clock */
-    _i2c->setClock(_i2cRate);
+    // let user init i2c
   }
   /* check device id */
   if (!isCorrectId()) {
@@ -1493,10 +1490,11 @@ void Bmi088Gyro::writeRegister(uint8_t subAddress, uint8_t data)
     digitalWrite(_csPin,HIGH); // deselect the chip
     _spi->endTransaction(); // end the transaction
   } else {
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // write the register address
-    _i2c->write(data); // write the data
-    _i2c->endTransmission();
+    uint8_t buf[] = {subAddress, data};
+    _i2c->write_async(_address, buf, 2, 0);
+    while (not _i2c->finished()) {
+      threads.yield();
+    }
   }
 }
 
@@ -1507,24 +1505,32 @@ void Bmi088Gyro::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest)
     _spi->beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0)); // begin the transaction
     digitalWrite(_csPin,LOW); // select the chip
     _spi->transfer(subAddress | SPI_READ); // specify the starting register address
+    dest[0] = _spi->transfer(0x00); // discard the first byte read
+    // Serial.print("DE: ");
+    // Serial.println(dest[0]);
     for (uint8_t i = 0; i < count; i++) {
       dest[i] = _spi->transfer(0x00); // read the data
+    //       Serial.print("DE: ");
+    // Serial.println(dest[i]);
     }
     digitalWrite(_csPin,HIGH); // deselect the chip
     _spi->endTransaction(); // end the transaction
   } else {
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // specify the starting register address
-    _i2c->endTransmission(false);
-    _i2c->requestFrom(_address, count); // specify the number of bytes to receive
-    for (uint8_t i = 0; i < count; i++) {
-      dest[i] = _i2c->read(); // read the data
+    _i2c->write_async(_address, &subAddress, 1, 0);
+    while (not _i2c->finished()) {
+      threads.yield();
+    }
+    uint32_t after = millis();
+
+    _i2c->read_async(_address, dest, count, 1);
+    while (not _i2c->finished()) {
+      threads.yield();
     }
   }
 }
 
 /* BMI088 object, input the I2C bus and address */
-Bmi088::Bmi088(TwoWire &bus,uint8_t accel_addr,uint8_t gyro_addr)
+Bmi088::Bmi088(I2CMaster &bus,uint8_t accel_addr,uint8_t gyro_addr)
 {
   accel = new Bmi088Accel(bus,accel_addr);
   gyro = new Bmi088Gyro(bus,gyro_addr);

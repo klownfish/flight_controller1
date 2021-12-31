@@ -1,8 +1,8 @@
 #include <stdint.h>
+#include "TeensyThreads.h"
 
 struct SampleEntry {
-    void (*func)(void*);
-    void* opaque_data;
+    void (*func)();
     uint32_t delay;
     uint32_t last_sampled;
     SampleEntry* next;
@@ -10,12 +10,11 @@ struct SampleEntry {
 
 class Sampler {
 public:
-    void insertFunction(void (*func)(void*), float frequency, void* opaque_data = nullptr) {
+    void insertFunction(void (*func)(), float frequency) {
         SampleEntry* new_entry = new SampleEntry(); // this is never freed :)
         new_entry->func = func;
         new_entry->delay = 1 / frequency * 1000000; //micros
         new_entry->last_sampled = 0;
-        new_entry->opaque_data = opaque_data;
         insertEntry(new_entry);
     }
 
@@ -39,8 +38,8 @@ public:
         SampleEntry* entry = first_entry;
         while (entry != nullptr) {
             if (clock - entry->last_sampled >= entry->delay * clock_divider) {
-                entry->func(entry->opaque_data);
                 entry->last_sampled = clock;
+                threads.addThread(entry->func);
             }
             entry = entry->next;
         }

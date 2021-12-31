@@ -1,19 +1,20 @@
-#include "SPIFlash.h"
+#include "AsyncFlash.h"
 #include "RH_RF69.h"
-#include "Adafruit_BMP280.h"
 #include "MPU9250.h"
 #include "rocket.h"
 #include "definitions.h"
 #include "WS2812Serial.h"
 #include "Gps.h"
 #include "Estimator2.h"
-#include "BMI088.h"
+#include "async_BMI088.h"
+#include "async_BMP280.h"
 #include "Pid.h"
 #include "Servo.h"
 #include "rocket_defines.h"
-#include "i2c_device.h"
+#include "i2c_driver.h"
 #include "TsyDMASPI.h"
 #include "TeensyThreads.h"
+#include "imx_rt1060/imx_rt1060_i2c_driver.h"
 
 //#define SERIAL_TELEMETRY
 
@@ -22,10 +23,15 @@
 
 void enterState(rocket::state state);
 
-extern Bmi088 bmi;
+extern Threads::Mutex i2c_mtx;
+extern Threads::Mutex spi_mtx;
+extern Threads::Mutex usb_mtx;
+
+extern Bmi088Accel bmiAcc;
+extern Bmi088Gyro bmiGyro;
 extern RH_RF69 radio; 
-extern SPIFlash flash;
-extern Adafruit_BMP280 bmp;
+extern AsyncFlash flash;
+extern BMP280 bmp;
 extern MPU9250 mpu;
 extern WS2812Serial rgb;
 extern GPS gps;
@@ -35,8 +41,6 @@ extern Pid y_gimbal_pid;
 extern Servo x_servo;
 extern Servo y_servo;
 
-
-extern uint16_t relay_frequency;
 extern uint32_t flash_addr;
 extern bool error;
 extern rocket::state rocket_state;

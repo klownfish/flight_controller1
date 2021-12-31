@@ -25,8 +25,9 @@
 #define BMI088_h
 
 #include "Arduino.h"
-#include "Wire.h"  // I2C library
-#include "SPI.h"   // SPI library
+#include "i2c_driver.h"
+#include "SPI.h"
+#include "TeensyThreads.h"
 
 class Bmi088Accel {
   public:
@@ -70,7 +71,7 @@ class Bmi088Accel {
       ACTIVE_HIGH,
       ACTIVE_LOW
     };
-    Bmi088Accel(TwoWire &bus,uint8_t address);
+    Bmi088Accel(I2CMaster &bus,uint8_t address);
     Bmi088Accel(SPIClass &bus,uint8_t csPin);
     int begin();
     bool setOdr(Odr odr);
@@ -97,7 +98,7 @@ class Bmi088Accel {
     };
     // i2c
     uint8_t _address;
-    TwoWire *_i2c;
+    I2CMaster *_i2c;
     const uint32_t _i2cRate = 400000; // 400 kHz
     // spi
     uint8_t _csPin;
@@ -231,7 +232,7 @@ class Bmi088Gyro {
       ACTIVE_HIGH,
       ACTIVE_LOW
     };
-    Bmi088Gyro(TwoWire &bus,uint8_t address);
+    Bmi088Gyro(I2CMaster &bus,uint8_t address);
     Bmi088Gyro(SPIClass &bus,uint8_t csPin);
     int begin();
     bool setOdr(Odr odr);
@@ -254,7 +255,7 @@ class Bmi088Gyro {
     };
     // i2c
     uint8_t _address;
-    TwoWire *_i2c;
+    I2CMaster *_i2c;
     const uint32_t _i2cRate = 400000; // 400 kHz
     // spi
     uint8_t _csPin;
@@ -366,7 +367,7 @@ class Bmi088 {
       ACTIVE_HIGH,
       ACTIVE_LOW
     };
-    Bmi088(TwoWire &bus,uint8_t accel_addr,uint8_t gyro_addr);
+    Bmi088(I2CMaster &bus,uint8_t accel_addr,uint8_t gyro_addr);
     Bmi088(SPIClass &bus,uint8_t accel_cs,uint8_t gyro_cs);
     int begin();
     bool setOdr(Odr odr);

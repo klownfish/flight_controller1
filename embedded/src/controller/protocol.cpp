@@ -26,43 +26,24 @@ void handleDataStreams() {
     }
 }
 
-void sendMsg(rocket::MessageBase* msg, enum send_when send) {
+void sendMsg(rocket::MessageBase* msg, uint16_t how_often) {
     uint8_t id = msg->get_id();
     uint8_t len = msg->get_size() + HEADER_SIZE;
     uint8_t buf[len];
     DataProtocol::build_buf(msg, buf, &len);
     if (flash_enabled) {
-        flash.writeByteArray(flash_addr, buf, len);
+        flash.write(flash_addr, buf, len);
         flash_addr += len;
     }
 
-    switch (send) {
-        case REGULAR:
-            message_count[id] = (message_count[id] + 1) % relay_frequency;
-            if (message_count[id] == 0) {
-                if (telemetry_enabled) {
-                    radio.send(buf, len);
-                }
-                #ifdef SERIAL_TELEMETRY
-                Serial.write(buf, len);
-                #endif
-            }
-            break;
-        case ALWAYS:
-            if (telemetry_enabled) {
-                radio.send(buf, len);
-            }
-            #ifdef SERIAL_TELEMETRY
-            Serial.write(buf, len);
-            #endif
-            break;
-        case NEVER:
-            break;
-        case OFFLINE:
-            #ifdef SERIAL_TELEMETRY
-            Serial.write(buf, len);
-            #endif
-            break;
+    message_count[id] = (message_count[id] + 1) % how_often;
+    if (message_count[id] == 0) {
+        if (telemetry_enabled) {
+            radio.send(buf, len);
+        }
+        #ifdef SERIAL_TELEMETRY
+        Serial.write(buf, len);
+        #endif
     }
 }
 
@@ -74,16 +55,16 @@ void dataProtocolCallback(uint8_t id, uint8_t* buf, uint8_t len) {
     DataProtocol::build_header(id, header, &header_len);
 
     if (flash_enabled) {
-        flash.writeByteArray(flash_addr, header, header_len);
+        flash.write(flash_addr, header, header_len);
         flash_addr += header_len;
-        flash.writeByteArray(flash_addr, buf, len);
+        flash.write(flash_addr, buf, len);
         flash_addr += len;
     }
 }
 
 void rocket::rx(rocket::handshake_from_everyone_to_everyone msg) {
     delay(200);
-    sendMsg(&msg, OFFLINE);
+    sendMsg(&msg, ~0);
     delay(500);
 }
 
@@ -91,7 +72,7 @@ void rocket::rx(rocket::set_state_from_ground_to_rocket msg) {
     enterState(msg.get_state());
     rocket::state_from_rocket_to_ground response;
     response.set_state(rocket_state);
-    sendMsg(&response, ALWAYS);
+    sendMsg(&response, 1);
 }
 
 void rocket::rx(rocket::mag_calibration_from_ground_to_rocket msg) {
@@ -130,7 +111,7 @@ void rocket::rx(rocket::dump_flash_from_ground_to_rocket msg) {
     uint8_t buf[256];
     delay(1000);
     for (uint32_t i = 0; i < flash_addr; i += 256) {
-        flash.readByteArray(i, buf, 256);
+        flash.read(i, buf, 256);
         Serial.write(buf, 256);
     }
     delay(5000);
