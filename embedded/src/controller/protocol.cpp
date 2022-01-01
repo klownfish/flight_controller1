@@ -4,7 +4,8 @@
 #include "protocol.h"
 #include "rocket.h"
 
-void smash();
+//#define SERIAL_FLASH
+#define SERIAL_RADIO
 
 uint8_t message_count[255] = {0}; //init to 0
 uint16_t relay_frequency = ~0;
@@ -26,24 +27,32 @@ void handleDataStreams() {
     }
 }
 
-void sendMsg(rocket::MessageBase* msg, uint16_t how_often) {
+void sendMsg(rocket::MessageBase* msg) {
     uint8_t id = msg->get_id();
     uint8_t len = msg->get_size() + HEADER_SIZE;
     uint8_t buf[len];
     DataProtocol::build_buf(msg, buf, &len);
-    if (flash_enabled) {
+    if (flash_enabled && msg->get_receiver() == rocket::nodes::flash) {
+        spi_mtx.lock();
         flash.write(flash_addr, buf, len);
+        spi_mtx.unlock();
         flash_addr += len;
-    }
-
-    message_count[id] = (message_count[id] + 1) % how_often;
-    if (message_count[id] == 0) {
-        if (telemetry_enabled) {
-            radio.send(buf, len);
-        }
-        #ifdef SERIAL_TELEMETRY
+        #ifdef SERIAL_FLASH
         Serial.write(buf, len);
         #endif
+    }
+
+    if (telemetry_enabled && msg->get_receiver() == rocket::nodes::ground) {
+        spi_mtx.lock();
+        //radio.send(buf, len);
+        spi_mtx.unlock();
+        #ifdef SERIAL_RADIO
+        Serial.write(buf, len);
+        #endif
+    }
+
+    if (msg->get_receiver() == rocket::nodes::everyone) {
+        Serial.write(buf, len);   
     }
 }
 
@@ -63,35 +72,24 @@ void dataProtocolCallback(uint8_t id, uint8_t* buf, uint8_t len) {
 }
 
 void rocket::rx(rocket::handshake_from_everyone_to_everyone msg) {
-    delay(200);
-    sendMsg(&msg, ~0);
-    delay(500);
+    threads.delay(200);
+    sendMsg(&msg);
+    threads.delay(500);
 }
 
-void rocket::rx(rocket::set_state_from_ground_to_rocket msg) {
-    enterState(msg.get_state());
-    rocket::state_from_rocket_to_ground response;
-    response.set_state(rocket_state);
-    sendMsg(&response, 1);
-}
 
-void rocket::rx(rocket::mag_calibration_from_ground_to_rocket msg) {
-    rgb.setPixel(0, BLUE);
-    rgb.show();
-    mpu.setMagneticDeclination(msg.get_declination());
-    mpu.calibrateMag();
-    rgb.setPixel(0, OK_COLOR);
-    rgb.show();
-}
 
 void dance();
 void rocket::rx(rocket::play_music_from_ground_to_rocket msg) {
-    if (rocket_state == state::sleeping || rocket_state == state::awake) {
+    if (rocket_state == state::sleeping) {
         dance();
     }
 }
 
 void rocket::rx(rocket::wipe_flash_from_ground_to_rocket msg) {
+    if (rocket_state != state::sleeping && rocket_state != state::ready) {
+        return;
+    }
     if (msg.get_this_to_42() != 42) return;
     rgb.setPixel(0, ORANGE);
     rgb.show();
@@ -99,6 +97,10 @@ void rocket::rx(rocket::wipe_flash_from_ground_to_rocket msg) {
     flash_addr = 0;
     rgb.setPixel(0, OK_COLOR);
     rgb.show();
+}
+
+void rocket::rx(rocket::set_state_from_ground_to_rocket msg) {
+    enterState(msg.get_state());
 }
 
 void rocket::rx(rocket::set_logging_from_ground_to_rocket msg) {

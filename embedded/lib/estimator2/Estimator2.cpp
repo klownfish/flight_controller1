@@ -4,18 +4,25 @@
 #define RAD_TO_DEG (180/PI)
 #define DEG_TO_RAD (PI/180)
 
-void Estimator::insert_imu(float ax, float ay, float az, float gx, float gy, float gz, uint32_t time) {
-    if (last_imu_update == 0) {
-        last_imu_update = time;
-    }
-    float dt = (time - last_imu_update) / 1000000.0;
-    last_imu_update = time;
-
-    turbomath::Vector accel_raw {ax, ay, az};
+void Estimator::insert_gyro(float gx, float gy, float gz, uint32_t time) {
     turbomath::Vector gyro_raw {gx, gy, gz};
-
     if (stationary) {
         gyro_bias.insert(gyro_raw);
+    }
+    local_gyro.insert(gyro_raw - gyro_bias.get_value());
+}
+
+
+void Estimator::insert_acceleration(float ax, float ay, float az, uint32_t time) {
+    if (last_acceleration_update == 0) {
+        last_acceleration_update = time;
+    }
+    float dt = (time - last_acceleration_update) / 1000000.0;
+    last_acceleration_update = time;
+
+    turbomath::Vector accel_raw {ax, ay, az};
+    
+    if (stationary) {
         measured_gravity_vector.insert(accel_raw);
 
         //find quaternion to rotate accel with
@@ -23,7 +30,7 @@ void Estimator::insert_imu(float ax, float ay, float az, float gx, float gy, flo
         float dot = measured_gravity_vector.get_value().dot(gravity_vector);
         turbomath::Vector normal = cross.normalized();
         //get cosine from cross product
-        float angle = -atan2(cross.norm(), dot); 
+        float angle = PI - atan2(cross.norm(), dot); 
         float temp_sin = sinf(angle/2);
         float temp_cos = cosf(angle/2);
         turbomath::Quaternion q;
@@ -39,27 +46,6 @@ void Estimator::insert_imu(float ax, float ay, float az, float gx, float gy, flo
 
     //local gyro and accel
     local_accel.insert(imu_offset.rotate(accel_raw));
-    local_gyro.insert(gyro_raw - gyro_bias.get_value());
-
-    //#define MEGA_PRINT
-    #ifdef MEGA_PRINT   
-    float roll, pitch, yaw;
-    heading.get_RPY(&roll, &pitch, &yaw);
-    Serial.println("lol\n");
-    Serial.println(dt);
-
-    Serial.print("stationary: "); Serial.println(stationary);
-
-    Serial.print("local accel x:"); Serial.println(local_accel.get_value().x);
-    Serial.print("local accel y:"); Serial.println(local_accel.get_value().y);
-    Serial.print("local accel z:"); Serial.println(local_accel.get_value().z);
-
-    Serial.print("roll: "); Serial.println(roll * RAD_TO_DEG);
-    Serial.print("pitch: "); Serial.println(pitch * RAD_TO_DEG);
-    Serial.print("yaw: "); Serial.println(yaw * RAD_TO_DEG);
-
-    Serial.println("YOYO");
-    #endif
 }
 
 void Estimator::update(uint32_t time) {
@@ -82,9 +68,12 @@ void Estimator::insert_pressure(float pressure, uint32_t time) {
     }
     float dt = (time - last_pressure_update) / 1000000;
     last_pressure_update = time;
-    //float raw_alt =  
-    float old_alt = altitude.get_value();
-    //altitude.insert()
+    float raw_alt =  44330 * (1.0 - pow(pressure / 1003, 0.1903));
+    altitude.insert(raw_alt);
+}
+
+float Estimator::get_altitude() {
+    return altitude.get_value();
 }
 
 void Estimator::set_moving() {
@@ -105,6 +94,6 @@ turbomath::Quaternion Estimator::get_heading() {
     return heading;
 }
 
-turbomath::Vector Estimator::get_local_acc() {
+turbomath::Vector Estimator::get_local_acceleration() {
     return local_accel.get_value();
 }

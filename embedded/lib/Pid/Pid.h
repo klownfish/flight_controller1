@@ -27,4 +27,8 @@ public:
     void set_setpoint(float value) {
         setpoint = value;
     }
+
+    float get_setpoint() {
+        return setpoint;
+    }
 };

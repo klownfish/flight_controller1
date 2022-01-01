@@ -40,6 +40,8 @@ extern Pid x_gimbal_pid;
 extern Pid y_gimbal_pid;
 extern Servo x_servo;
 extern Servo y_servo;
+extern float x_gimbal_angle;
+extern float y_gimbal_angle;
 
 extern uint32_t flash_addr;
 extern bool error;

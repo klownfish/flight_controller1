@@ -14,19 +14,19 @@
 #define GYRO_BIAS_PROCESS_NOISE 0.001
 
 #define ACCEL_MEASURE_NOISE_VERTICAL 0.1
-#define ACCEL_PROCESS_NOISE_VERTICAL 0.1
+#define ACCEL_PROCESS_NOISE_VERTICAL 0.5
 
 #define ACCEL_MEASURE_NOISE_HORIZONTAL 0.1
-#define ACCEL_PROCESS_NOISE_HORIZONTAL 0.1
+#define ACCEL_PROCESS_NOISE_HORIZONTAL 0.5
 
 #define GYRO_MEASURE_NOISE 0.1
-#define GYRO_PROCESS_NOISE 0.1
+#define GYRO_PROCESS_NOISE 0.5
 
 #define GRAVITY_MEASURE_NOISE 0.1
-#define GRAVITY_PROCESS_NOISE 0.1
+#define GRAVITY_PROCESS_NOISE 0.5
 
 #define ALTITUDE_MEASURE_NOISE 0.1
-#define ALTITUDE_PROCESS_NOISE 0.1
+#define ALTITUDE_PROCESS_NOISE 0.5
 
 class ComplimentaryFilter {
     float value;
@@ -163,7 +163,8 @@ public:
 class Estimator {
 public:
     void update(uint32_t time);
-    void insert_imu(float ax, float ay, float az, float gx, float gy, float gz, uint32_t time);
+    void insert_acceleration(float ax, float ay, float az, uint32_t time);
+    void insert_gyro(float gx, float gy, float gz, uint32_t time);
     void insert_pressure(float pres, uint32_t time);
 
     void set_stationary(float roll, float pitch, float yaw);
@@ -177,17 +178,18 @@ public:
     void set_calibration(uint8_t* buf, uint8_t len);
     turbomath::Quaternion get_heading();
     turbomath::Vector get_local_rotation();
-    turbomath::Vector get_local_acc();
+    turbomath::Vector get_local_acceleration();
     float get_z_velocity();
+    float get_altitude();
     bool apogee_reached();
-    
 
 private:
     bool stationary = false;
     bool ignited = false;
     
-    uint32_t last_imu_update = 0;
+    uint32_t last_acceleration_update = 0;
     uint32_t last_pressure_update = 0;
+    uint32_t last_gyro_update = 0;
     uint32_t last_main_update = 0;
     uint32_t engine_started = 0;
 

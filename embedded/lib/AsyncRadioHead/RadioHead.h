@@ -1317,7 +1317,7 @@ these examples and explanations and extend them to suit your needs.
 
 */
 
-
+#include "TeensyThreads.h"
 
 #ifndef RadioHead_h
 #define RadioHead_h
@@ -1619,7 +1619,7 @@ these examples and explanations and extend them to suit your needs.
 // instead of spin-loops
 // Recent Arduino IDE or Teensy 3 has yield()
 #if (RH_PLATFORM == RH_PLATFORM_ARDUINO && ARDUINO >= 155) || (defined(TEENSYDUINO) && defined(__MK20DX128__))
- #define YIELD yield();
+ #define YIELD {yield();}
 #elif (RH_PLATFORM == RH_PLATFORM_ESP8266)
 // ESP8266 also has it
  #define YIELD yield();

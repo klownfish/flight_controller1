@@ -14,30 +14,25 @@ def main():
     open_serial = tk.Button(settings, text="open serial", command = gw.open_serial, **padding)
     open_flash = ButtonFile(settings, text="open file", command = gw.open_flash_file, **padding)
     
-    mag_calibrate = MagCalibration(settings, gw, **padding)
     sleep = tk.Button(settings, text="sleep", command = gw.enter_sleep, **padding)
-    wake_up = tk.Button(settings, text="wake up", command = gw.wake_up, **padding)
     get_ready = tk.Button(settings, text="get ready!", command = gw.get_ready, **padding)
-    state = EnumLastValue(settings, "state: ", gw.data["rocket"]["state"]["state"])
-    voltage = TextLastValue(settings, "voltage: ", gw.data["rocket"]["battery_voltage"]["voltage"])
-    rssi = TextLastValue(settings, "rssi rocket: ", gw.data["rocket"]["rssi"]["rssi"])
+    state = EnumLastValue(settings, "state: ", gw.data["rocket"]["telemetry"]["state"])
+    voltage = TextLastValue(settings, "voltage: ", gw.data["rocket"]["telemetry"]["voltage"])
+    rssi = TextLastValue(settings, "rssi rocket: ", gw.data["rocket"]["telemetry"]["rssi"])
     rssi_relay = TextLastValue(settings, "rssi relay: ", gw.data["relay"]["rssi"]["rssi"])
     rssi_launchpad = TextLastValue(settings, "rssi launchpad: ", gw.data["launchpad"]["rssi"]["rssi"])
-    temperature = TextLastValue(settings, "temperature: ", gw.data["rocket"]["bmp"]["temperature"])
     wipe_flash = tk.Button(settings, text = "wipe flash", command= gw.wipe_flash, **padding)
     flash_index = FlashUsed(settings, gw, **padding)
     enable_logging = tk.Button(settings, text = "enable logging", command= gw.enable_logging, **padding)
     disable_logging = tk.Button(settings, text = "disable logging", command= gw.disable_logging, **padding)
     play_music = tk.Button(settings, text = "play music", command= gw.play_music, **padding)
-    debug = tk.Button(settings, text = "enter debug", command= gw.enter_debug, **padding)
     arm = tk.Button(settings, text = "arm", command= gw.arm, **padding)
     disarm = tk.Button(settings, text = "disarm", command= gw.disarm, **padding)
     pyro1 = tk.Button(settings, text = "enable pyro", command= gw.enable_pyro1, **padding)
-    n_satellites = TextLastValue(settings, "satellites: ", gw.data["rocket"]["gps_state"]["n_satellites"])
-    fix_status = EnumLastValue(settings, "fix: ", gw.data["rocket"]["gps_state"]["fix_type"])
-    latitude = TextLastValue(settings, "latitude: ", gw.data["rocket"]["gps_pos"]["latitude"])
-    longitude = TextLastValue(settings, "longitude: ", gw.data["rocket"]["gps_pos"]["longitude"])
-    gps_altitude = TextLastValue(settings, "altitude: ", gw.data["rocket"]["gps_pos"]["altitude"])
+    n_satellites = TextLastValue(settings, "satellites: ", gw.data["rocket"]["telemetry"]["satellites"])
+    latitude = TextLastValue(settings, "latitude: ", gw.data["rocket"]["position"]["latitude"])
+    longitude = TextLastValue(settings, "longitude: ", gw.data["rocket"]["position"]["longitude"])
+    altitude_text = TextLastValue(settings, "altitude: ", gw.data["rocket"]["telemetry"]["altitude"])
 
     altitude = AltitudeGraph(root, gw)
     gyro = GyroGraph(root, gw)
@@ -50,14 +45,8 @@ def main():
 
     open_flash.grid(column = 0, row = index)
     index += 1
-    
-    mag_calibrate.grid(column = 0, row = index)
-    index += 1
 
     sleep.grid(column = 0, row = index)
-    index += 1
-
-    wake_up.grid(column = 0, row = index)
     index += 1
 
     get_ready.grid(column = 0, row = index)
@@ -75,8 +64,6 @@ def main():
     play_music.grid(column= 0, row = index)
     index += 1
 
-    debug.grid(column=0, row = index)
-    index += 1
 
     arm.grid(column = 0, row = index)
     index += 1
@@ -99,17 +86,11 @@ def main():
 
     rssi_relay.grid(column = 1, row = tindex)
     tindex += 1
-
-    temperature.grid(column = 1, row = tindex)
-    tindex += 1
     
     flash_index.grid(column = 1, row = tindex)
     tindex += 1
 
     n_satellites.grid(column = 1, row = tindex)
-    tindex += 1
-
-    fix_status.grid(column = 1, row = tindex)
     tindex += 1
 
     latitude.grid(column = 1, row = tindex)
@@ -118,7 +99,7 @@ def main():
     longitude.grid(column = 1, row = tindex)
     tindex += 1
 
-    gps_altitude.grid(column = 1, row = tindex)
+    altitude_text.grid(column = 1, row = tindex)
     tindex += 1
     
     altitude.widget.grid(column = 0, row = 0, **padding)

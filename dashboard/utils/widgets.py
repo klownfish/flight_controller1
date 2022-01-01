@@ -110,9 +110,9 @@ class GyroGraph(GenericGraph):
 class AccelerationGraph(GenericGraph):
     def __init__(self, root, gw):
         dataLists = [
-            gw.data["rocket"]["estimate"]["ax"],
-            gw.data["rocket"]["estimate"]["ay"],
-            gw.data["rocket"]["estimate"]["az"],
+            gw.data["rocket"]["telemetry"]["ax"],
+            gw.data["rocket"]["telemetry"]["ay"],
+            gw.data["rocket"]["telemetry"]["az"],
         ]
         super().__init__(root, gw.get_current_time, dataLists)
         self.ax.set_ylim(-5, 40)
@@ -121,37 +121,16 @@ class AccelerationGraph(GenericGraph):
 
 class AltitudeGraph(GenericGraph):
     def __init__(self, root, gw):
-        super().__init__(root, gw.get_current_time, [gw.data["rocket"]["estimate"]["altitude"]])
-        self.ax.set_ylim(-5, 150)
+        super().__init__(root, gw.get_current_time, [gw.data["rocket"]["telemetry"]["altitude"]])
+        self.ax.set_ylim(-10, 150)
         self.ax.set_title("altitude - m")
-
-class MagCalibration(tk.Frame):
-    def __init__(self, root, gw, **settings):
-        super().__init__(root)
-        self.gw = gw
-        self.button = tk.Button(self, text="mag calibration", command = self.update, **settings)
-        self.text = tk.Text(self, height = 1, width = 5, **settings)
-        tk.Label(self, text="Mag declination:").grid(column=0, row=0)
-        self.text.grid(column = 0, row = 1)
-        self.button.grid(column = 0, row = 2)
-
-    def update(self):
-        num = float(self.text.get("1.0", "end"))
-        self.gw.calibrate_mag(num)
-
-class FlashUsed(tk.Label):
-    def __init__(self, root, gw, **settings):
-        self.gw = gw
-        self.stringVar = tk.StringVar()
-        super().__init__(root, textvariable = self.stringVar)
-
 
 class FlashUsed(tk.Label):
     def __init__(self, root, gw, **kwargs):
         self.stringVar = tk.StringVar()
         self.stringVar.set("flash used:")
         self.root = root
-        self.value = gw.data["rocket"]["flash_address"]["address"]
+        self.value = gw.data["rocket"]["telemetry"]["flash_address"]
         self.update()
         super().__init__(root, textvariable = self.stringVar)
 

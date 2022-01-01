@@ -17,9 +17,16 @@ void dance();
 
 #define SERIAL_DEBUG
 
-#define BMI_GYRO_FREQUENCY 1000
-#define BMI_ACCEL_FREQUENCY 250
-#define BMP_FREQUENCY 50
+#define TIME_HZ 1000
+#define BMI_GYRO_HZ 1000
+#define BMI_ACCEL_HZ 250
+#define BMP_HZ 50
+#define BATTERY_HZ 10
+#define BATTERY_HZ 10
+#define GPS_HZ 10
+#define TELEMETRY_HZ 15
+#define STATE_HZ 100
+#define TVC_ANGLE_HZ 400
 
 #define FLASH_TEST_BYTES 10
 
@@ -60,15 +67,14 @@ Servo x_servo;
 Servo y_servo;
 Pid x_gimbal_pid {KP, KI, KD};
 Pid y_gimbal_pid {KP, KI, KD}; //output is rad*s^-2
-
+float x_gimbal_angle = 0;
+float y_gimbal_angle = 0;
 Estimator estimator;
-
 Sampler sampler;
-
 uint32_t flash_addr = 0;
 bool error = false;
 bool flash_enabled = false;
-bool telemetry_enabled = false;
+bool telemetry_enabled = true;
 rocket::state rocket_state = rocket::state::ready;
 
 void threadEnd(float frequency) {
@@ -100,9 +106,13 @@ void enterState(rocket::state state) {
             break;
 
         case rocket::state::sleeping:
+            telemetry_enabled = false;
+            flash_enabled = false;
             break;
 
         case rocket::state::ready:
+            telemetry_enabled = true;
+            //estimator.set_moving();
             estimator.set_stationary(0, 90 * DEG_TO_RAD, 0);
             break;
 
@@ -142,9 +152,9 @@ void initPins() {
 
     analogWriteFrequency(PIN_BUZZER, BUZZER_HZ);
     digitalWrite(PIN_RF_CS, HIGH);
-    digitalWrite(PIN_PYRO_4, LOW);
+    digitalWrite(PIN_PYRO_4, HIGH);
     digitalWrite(PIN_FLASH_CS, HIGH);
-    digitalWrite(PIN_PYRO_ARM, HIGH);
+    digitalWrite(PIN_PYRO_ARM, LOW);
     delay(100);
 }
 
@@ -168,7 +178,7 @@ void restoreFlashAddr() {
             empty_in_row = 0;
         }
         if (empty_in_row == FLASH_TEST_BYTES) {
-            flash_addr -= FLASH_TEST_BYTES - 2;
+            flash_addr -= FLASH_TEST_BYTES - 1;
             break;
         }
         flash_addr++;
@@ -200,9 +210,10 @@ void initRadio() {
         error = true;
         return;
     }
-    radio.setFrequency(FREQUENCY);
+    radio.setFrequency(RADIO_FREQUENCY);
     radio.setTxPower(TX_POWER, true);
     radio.setModemConfig(MODULATION);
+    //attachInterrupt(PIN_RF_G0, rfm_interrupt, RISING);
     if (IS_HAM) { 
         radio.send(CALLSIGN, sizeof(CALLSIGN));
     }
@@ -246,79 +257,100 @@ void initBmp() {
     }
 }
 
-void sampleGpsPosition() {
-    rocket::gps_pos_from_rocket_to_ground msg;
-    if (gps.is_set(FLAG_ALTITUDE) && gps.is_set(FLAG_LONGITUDE) && gps.is_set(FLAG_LATITUDE)) {
-        msg.set_altitude(gps.altitude);
-        msg.set_longitude(gps.longitude_degrees + gps.longitude_minutes / 60);
-        msg.set_latitude(gps.latitude_degrees + gps.latitude_minutes / 60);
-        sendMsg(&msg, 3);
-    }
-}
-
-void sampleGpsState() {
-    rocket::gps_state_from_rocket_to_ground msg;
-    if (gps.is_set(FLAG_FIX_STATUS)) {
-        switch (gps.fix_status) {
-            case 1:
-                msg.set_fix_type(rocket::fix_type::none);
-                break;
-            case 2:
-                msg.set_fix_type(rocket::fix_type::fix2D);
-                break;
-            case 3:
-                msg.set_fix_type(rocket::fix_type::fix3D);
-                break;
-            default:
-                msg.set_fix_type(rocket::fix_type::none);
-                break;
+void sampleGps() {
+    for (;;) {
+        rocket::gps_from_rocket_to_flash msg;
+        if (gps.is_set(FLAG_FIX_STATUS)) {
+            switch (gps.fix_status) {
+                case 1:
+                    msg.set_fix_type(rocket::fix_type::none);
+                    break;
+                case 2:
+                    msg.set_fix_type(rocket::fix_type::fix2D);
+                    break;
+                case 3:
+                    msg.set_fix_type(rocket::fix_type::fix3D);
+                    break;
+                default:
+                    msg.set_fix_type(rocket::fix_type::none);
+                    break;
+            }
+        } else {
+            msg.set_fix_type(rocket::fix_type::none);
         }
-    } else {
-        msg.set_fix_type(rocket::fix_type::none);
-    }
 
-    if (gps.is_set(FLAG_PDOP)) {
-        msg.set_pdop(gps.pdop);
-    } else {
-        msg.set_pdop(0);
-    }
+        if (gps.is_set(FLAG_PDOP)) {
+            msg.set_pdop(gps.pdop);
+        } else {
+            msg.set_pdop(0);
+        }
 
-    if (gps.is_set(FLAG_N_SATELLITES)) {
-        msg.set_n_satellites(gps.n_satellites);
-    } else {
-        msg.set_n_satellites(0);
+        if (gps.is_set(FLAG_N_SATELLITES)) {
+            msg.set_n_satellites(gps.n_satellites);
+        } else {
+            msg.set_n_satellites(0);
+        }
+
+        if (gps.is_set(FLAG_ALTITUDE)) {
+            msg.set_altitude(gps.altitude);
+        } else {
+            msg.set_altitude(0);
+        }
+
+        if (gps.is_set(FLAG_LONGITUDE)) {
+            msg.set_longitude(gps.longitude_degrees + gps.longitude_minutes / 60);
+        } else {
+            msg.set_longitude(0);
+        }
+        if (gps.is_set(FLAG_LATITUDE)) {
+            msg.set_latitude(gps.latitude_degrees + gps.latitude_minutes / 60);
+        } else {
+            msg.set_latitude(0);
+        }
+        sendMsg(&msg);
+        threadEnd(GPS_HZ);
     }
-    sendMsg(&msg, 10);
 }
 
 void sampleBmiAccel() {
     for (;;) {
+        rocket::bmi_accel_from_rocket_to_flash msg;
         i2c_mtx.lock();
         bmiAcc.readSensor();
         i2c_mtx.unlock();
         float ax = bmiAcc.getAccelX_mss();
         float ay = bmiAcc.getAccelY_mss();
         float az = bmiAcc.getAccelZ_mss();
-        Serial.println("a");
-        threadEnd(BMI_ACCEL_FREQUENCY);
+        msg.set_ax(ax);
+        msg.set_ay(ay);
+        msg.set_az(az);
+        estimator.insert_acceleration(ax, ay, az, micros());
+        sendMsg(&msg);
+        threadEnd(BMI_ACCEL_HZ);
     }
 }
 
 void sampleBmiGyro() {
     for (;;) {
+        rocket::bmi_gyro_from_rocket_to_flash msg;
         i2c_mtx.lock();
         bmiGyro.readSensor();
         i2c_mtx.unlock();
         float gx = bmiGyro.getGyroX_rads();
         float gy = bmiGyro.getGyroY_rads();
         float gz = bmiGyro.getGyroZ_rads();
-        Serial.println("g");
-        threadEnd(BMI_GYRO_FREQUENCY);
+        msg.set_gx(gx);
+        msg.set_gy(gy);
+        msg.set_gz(gz);
+        estimator.insert_gyro(gx, gy, gz, micros());
+        sendMsg(&msg);
+        threadEnd(BMI_GYRO_HZ);
     }
 }
 
 void sampleBmp() {
     for (;;) {
+        rocket::bmp_from_rocket_to_flash msg;
         i2c_mtx.lock();
         uint32_t wait = bmp.startMeasurment();
         i2c_mtx.unlock();
@@ -327,95 +359,132 @@ void sampleBmp() {
         double temp, pressure;
         bmp.getTemperatureAndPressure(temp, pressure);
         i2c_mtx.unlock();
-        Serial.println("pressure");
-        Serial.println(pressure);
-        threadEnd(BMP_FREQUENCY);
+        msg.set_pressure(pressure);
+        msg.set_temperature(temp);
+        sendMsg(&msg);
+        threadEnd(BMP_HZ);
     }
 }
 
 void sampleBatteryVoltage() {
-    rocket::battery_voltage_from_rocket_to_ground battery_msg;
-    float volt = (float) analogRead(PIN_BAT_READ);
-    volt = volt / ((1 << 12) - 1) * 3.3 * (6.04e3 + 2e3) / (2e3);   
-    battery_msg.set_voltage(volt);
-    sendMsg(&battery_msg, 1);
-}
-
-void sampleFlashMemory() {
-    rocket::flash_address_from_rocket_to_ground flash_msg;
-    flash_msg.set_address(flash_addr);
-    sendMsg(&flash_msg, 1);
+    for (;;) {
+        rocket::battery_voltage_from_rocket_to_flash battery_msg;
+        float volt = (float) analogRead(PIN_BAT_READ);
+        volt = volt / ((1 << 12) - 1) * 3.3 * (6.04e3 + 2e3) / (2e3);   
+        battery_msg.set_voltage(volt);
+        sendMsg(&battery_msg);
+        threadEnd(BATTERY_HZ);
+    }
 }
 
 void sampleState() {
-    rocket::state_from_rocket_to_ground state_msg;
-    state_msg.set_state(rocket_state);
-    sendMsg(&state_msg, 1);
+    for (;;) {
+        rocket::state_from_rocket_to_flash state_msg;
+        state_msg.set_state(rocket_state);
+        sendMsg(&state_msg);
+        threadEnd(STATE_HZ);
+    }
 }
 
 void sampleTime() {
-    rocket::timestamp_from_rocket_to_ground msg;
-    msg.set_ms_since_boot(millis());
-    sendMsg(&msg, 1);
-}
-
-void sampleEstimate() {
-    rocket::estimate_from_rocket_to_ground msg;
-}
-void updateTvc() {
     for (;;) {
-        if (millis() > 10000) {
-            estimator.set_moving();
-        } else {
-            estimator.set_stationary(0, 0, 0);
-        }
-        static uint32_t last_update = micros();
-        uint32_t current_time = micros();
-        float dt = (current_time - last_update) / 1000000;
-        turbomath::Quaternion heading_quat = estimator.get_heading();
-        float roll, pitch, yaw;
-        heading_quat.get_RPY(&roll, &pitch, & yaw);
-        float x_angular_accel = x_gimbal_pid.update(roll, dt);
-        float y_angular_accel = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
-
-        float total_thrust = estimator.get_local_acc().z / ROCKET_MASS;
-        float moment_arm = ROCKET_MOUNT - ROCKET_COM;
-        float x_thrust =  x_angular_accel * ROCKET_MOI / moment_arm;
-        float y_thrust = y_angular_accel * ROCKET_MOI / moment_arm;;
-        
-        float x_angle = asinf(x_thrust / total_thrust);
-        float y_angle = asinf(y_thrust / total_thrust);
-
-        float mount_x_angle = cosf(yaw) * x_angle - sinf(yaw) * y_angle;
-        float mount_y_angle = sinf(yaw) * x_angle + cosf(yaw) * y_angle;
-
-        float servo_x_angle = mount_x_angle;
-        float servo_y_angle = mount_y_angle;
-
-        servo_x_angle = SERVO_ACTUATION / 2 + constrain(servo_x_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
-        servo_y_angle = SERVO_ACTUATION / 2 + constrain(servo_y_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
-        
-        x_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_x_angle / SERVO_ACTUATION);
-        y_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_y_angle / SERVO_ACTUATION);
-        threads.yield();
+        rocket::ms_since_boot_from_rocket_to_flash msg;
+        msg.set_ms_since_boot(millis());
+        sendMsg(&msg);
+        threadEnd(TIME_HZ);
     }
+}
+
+void sampleTvc() {
+    for (;;) {
+        rocket::tvc_angle_from_rocket_to_flash msg;
+        msg.set_angle_x(x_gimbal_angle);
+        msg.set_angle_y(y_gimbal_angle);
+        sendMsg(&msg);
+        threadEnd(TVC_ANGLE_HZ);
+    }
+}
+
+void sampleTelemetry() {
+    for (;;) {
+        rocket::telemetry_from_rocket_to_ground msg;
+        msg.set_ax(estimator.get_local_acceleration().x);
+        msg.set_ay(estimator.get_local_acceleration().y);
+        msg.set_az(estimator.get_local_acceleration().z);
+        float r,p,y;
+        estimator.get_heading().get_RPY(&r, &p, &y);
+        msg.set_roll(r);
+        msg.set_pitch(p);
+        msg.set_yaw(y);
+        msg.set_altitude(estimator.get_altitude());
+        msg.set_satellites(gps.n_satellites);
+        msg.set_rssi(radio.lastRssi());
+        msg.set_state(rocket_state);
+        msg.set_voltage(analogRead(PIN_BAT_READ));
+        msg.set_flash_address(flash_addr);
+        msg.set_ms_since_boot(millis());
+        sendMsg(&msg);
+        threadEnd(TELEMETRY_HZ);
+    }
+}
+
+void updateTvc() {
+    static uint32_t last_update = micros();
+    uint32_t current_time = micros();
+    float dt = (current_time - last_update) / 1000000;
+    turbomath::Quaternion heading_quat = estimator.get_heading();
+    float roll, pitch, yaw;
+    heading_quat.get_RPY(&roll, &pitch, & yaw);
+    float x_angular_accel = x_gimbal_pid.update(roll, dt);
+    float y_angular_accel = y_gimbal_pid.update(pitch, dt); //output is radians*s^-2
+
+    float total_thrust = estimator.get_local_acceleration().z / ROCKET_MASS;
+    float moment_arm = ROCKET_MOUNT - ROCKET_COM;
+    float x_thrust =  x_angular_accel * ROCKET_MOI / moment_arm;
+    float y_thrust = y_angular_accel * ROCKET_MOI / moment_arm;;
+    
+    float x_angle = asinf(x_thrust / total_thrust);
+    float y_angle = asinf(y_thrust / total_thrust);
+
+    float mount_x_angle = cosf(yaw) * x_angle - sinf(yaw) * y_angle;
+    float mount_y_angle = sinf(yaw) * x_angle + cosf(yaw) * y_angle;
+
+    float servo_x_angle = SERVO_ACTUATION / 2 + constrain(mount_x_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
+    float servo_y_angle = SERVO_ACTUATION / 2 + constrain(mount_y_angle, -SERVO_ACTUATION / 2, SERVO_ACTUATION / 2);
+    
+    x_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_x_angle / SERVO_ACTUATION);
+    y_servo.writeMicroseconds(SERVO_MIN_PULSE + (SERVO_MAX_PULSE - SERVO_MIN_PULSE) * servo_y_angle / SERVO_ACTUATION);
+    x_gimbal_angle = mount_x_angle;
+    y_gimbal_angle = mount_y_angle;
 }
 
 void initThreads() {
     threads.setMicroTimer();
     threads.addThread(sampleBmp);
+    threads.addThread(sampleBatteryVoltage);
+    threads.addThread(sampleTelemetry);
+    threads.addThread(sampleTime);
+}
+
+
+EventResponder true_yield_er;
+void true_yield(EventResponderRef r) {
+    threads.yield();
+    true_yield_er.triggerEvent();
 }
 
 void setup() {
+    true_yield_er.runFromYield();
+    true_yield_er.attach(true_yield);
+    true_yield_er.triggerEvent();
+
     //setup doesn't have to be optimized, lock everything
     i2c_mtx.lock();
     spi_mtx.lock();
     usb_mtx.lock();
     Serial.begin(BAUD);
-    while(!Serial){}
     initPins();
-    enterState(rocket::state::ready);
-    sampler.setClockDivider(1);
+    enterState(rocket::state::sleeping);
     rgb.begin();
     rgb.setPixel(0, 0);
     rgb.show();
@@ -426,17 +495,17 @@ void setup() {
     initThreads();
     #ifdef USE_GPS
         initGps();
-        sampler.insertFunction(sampleGpsPosition, 10);
-        sampler.insertFunction(sampleGpsState, 10);
+        threads.addThread(sampleGps)
     #else
         initBmi();
+        initServos();
         digitalWrite(PIN_PYRO_4, HIGH);
         x_gimbal_pid.set_setpoint(0);
         y_gimbal_pid.set_setpoint(0);
-        threads.addThread(updateTvc);
+        threads.addThread(sampleTvc);
         threads.addThread(sampleBmiAccel);
         threads.addThread(sampleBmiGyro);
-        initServos();
+        threads.addThread(sampleTvc);
     #endif
     if (error) {
         // not good
@@ -455,7 +524,7 @@ void setup() {
 
 void loop() {
     handleDataStreams();
+    updateTvc();
     estimator.update(micros());
-    
     threads.yield();
 }

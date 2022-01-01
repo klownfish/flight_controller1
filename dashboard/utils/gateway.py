@@ -283,6 +283,7 @@ class SerialReader():
                 name += str(sensor_index)
                 sensor_index = None
             current_time = self.decide_on_time(name, value)
+            print(source.name, message.name, name, value)
             self.data[source.name][message.name][name].x.append(current_time)
             self.data[source.name][message.name][name].y.append(value)
 
@@ -302,30 +303,12 @@ class Gateway(SerialReader):
         msg = protocol.set_state_from_ground_to_rocket()
         msg.set_state(protocol.state.sleeping)
         self._send_message(msg)
-    
-    def wake_up(self):
-        msg = protocol.set_state_from_ground_to_rocket()
-        msg.set_state(protocol.state.awake)
-        self._send_message(msg)
-    
+        
     def get_ready(self):
         msg = protocol.set_state_from_ground_to_rocket()
         msg.set_state(protocol.state.ready)
         self._send_message(msg)
 
-    def enter_debug(self):
-        msg = protocol.set_state_from_ground_to_rocket()
-        msg.set_state(protocol.state.debug)
-        self._send_message(msg)
-
-    def calibrate_simple(self):
-        msg = protocol.simple_calibration_from_ground_to_rocket()
-        self._send_message(msg)
-    
-    def calibrate_mag(self, declination):
-        msg = protocol.mag_calibration_from_ground_to_rocket()
-        msg.set_declination(declination)
-        self._send_message(msg)
     
     def play_music(self):
         msg = protocol.play_music_from_ground_to_rocket()

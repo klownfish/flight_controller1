@@ -10,7 +10,7 @@
 
 #define RADIO_BUF_LEN 128
 
-#define FREQUENCY 433.800
+#define RADIO_FREQUENCY 433.800
 #define MODULATION RH_RF69::ModemConfigChoice::GFSK_Rb38_4Fd76_8
 
 #define PIN_CAN_RX 0
